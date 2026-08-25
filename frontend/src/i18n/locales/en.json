@@ -1,0 +1,158 @@
+{
+  "nav": {
+    "solutions": "Solutions",
+    "saas": "Niche SaaS",
+    "interactive": "Simulator",
+    "consulting": "AI Consulting",
+    "methodology": "Methodology",
+    "contact": "Contact",
+    "cta": "Get in Touch"
+  },
+  "hero": {
+    "badge": "✦ APPLIED ARTIFICIAL INTELLIGENCE & CUSTOM SAAS",
+    "title_main": "Intelligence that",
+    "title_highlight": "works.",
+    "title_sub": "Software engineered to power your daily operations.",
+    "description": "At Averiq, we build niche SaaS platforms, autonomous support and sales chatbots, streamlined POS systems, accounts payable reconciliation, and smart clinic management. No fluff: pragmatic solutions with measurable ROI.",
+    "cta_primary": "Request Diagnosis / Demo",
+    "cta_whatsapp": "Chat on WhatsApp",
+    "social_label": "Direct contact channels:",
+    "stats": [
+      { "value": "+70%", "label": "Response time reduction" },
+      { "value": "24/7", "label": "Continuous AI operation" },
+      { "value": "100%", "label": "Tailored to specific workflows" }
+    ]
+  },
+  "solutions": {
+    "badge": "SOLUTIONS PORTFOLIO",
+    "title": "Precision technology for every area of your business",
+    "subtitle": "We don't believe in one-size-fits-all software. We build tools engineered specifically around your industry and real operational bottlenecks.",
+    "items": {
+      "chatbot_support": {
+        "tag": "SUPPORT & CARE",
+        "title": "24/7 Customer Support Chatbots",
+        "desc": "Smart conversational agents that resolve FAQs, handle incident tickets, and streamline complex inquiries with zero friction.",
+        "bullets": ["Seamless WhatsApp & Web integration", "Context-aware knowledge base responses", "Smart human escalation workflow"]
+      },
+      "chatbot_sales": {
+        "tag": "SALES & PROSPECTING",
+        "title": "Sales & Lead Qualification Chatbots",
+        "desc": "Turn visitors into qualified customers around the clock. Capture critical data, schedule discovery calls, and feed your pipeline on autopilot.",
+        "bullets": ["Instant lead qualification scoring", "CRM and email automatic sync", "Dynamic catalog & quotation engine"]
+      },
+      "pos_system": {
+        "tag": "COMMERCE & RETAIL",
+        "title": "Smart POS for Small Businesses",
+        "desc": "Fast, intuitive point of sale. Real-time stock control, multi-payment options, and actionable analytics accessible from mobile or desktop.",
+        "bullets": ["Swift billing & digital receipts", "Multi-branch real-time inventory", "Live sales metrics & operational trends"]
+      },
+      "accounts_payable": {
+        "tag": "FINTECH & OPERATIONS",
+        "title": "Accounts Payable & Suppliers",
+        "desc": "Automated procurement and billing cycle. OCR receipt parsing, due date scheduling, and error-free payment reconciliation.",
+        "bullets": ["Automated invoice data extraction", "Duplicate payment alerts & fraud prevention", "Multi-tiered approval workflows"]
+      },
+      "clinics_health": {
+        "tag": "HEALTHCARE & CLINICS",
+        "title": "Clinic Management & Health Insurance",
+        "desc": "End-to-end organization for healthcare professionals and medical centers. Smart appointment scheduling, WhatsApp reminders, and insurance validation.",
+        "bullets": ["Self-service online booking portal", "Automated WhatsApp appointment alerts", "Insurance coverage & patient records"]
+      },
+      "ai_consulting": {
+        "tag": "STRATEGY & ENTERPRISE",
+        "title": "Enterprise AI Strategy & Integration",
+        "desc": "We guide your enterprise through genuine AI adoption: business process diagnosis, private LLMs, and high-impact RPA automation.",
+        "bullets": ["Workflow and corporate data auditing", "Custom fine-tuned LLM architectures", "Corporate data security & governance"]
+      }
+    }
+  },
+  "simulator": {
+    "badge": "INTERACTIVE EXPERIENCE",
+    "title": "Simulate the impact on your sector",
+    "subtitle": "Select a use case to experience how the Averiq ecosystem performs in real time.",
+    "tabs": {
+      "chatbot": "Support Chatbot",
+      "pos": "Point of Sale (POS)",
+      "clinics": "Clinic & Appointments",
+      "finance": "Accounts Payable"
+    }
+  },
+  "methodology": {
+    "badge": "HOW WE WORK",
+    "title": "From problem statement to production-grade solution",
+    "subtitle": "An agile, transparent approach focused on delivering tangible business value from sprint one.",
+    "steps": [
+      {
+        "step": "01",
+        "title": "Diagnosis & Architecture",
+        "desc": "We analyze your existing workflows, isolate bottlenecks, and design the optimal tech architecture without over-engineering."
+      },
+      {
+        "step": "02",
+        "title": "Rapid Prototyping & UX",
+        "desc": "We craft intuitive user experiences and validate a functional prototype to ensure it aligns precisely with your day-to-day operations."
+      },
+      {
+        "step": "03",
+        "title": "Development & Deployment",
+        "desc": "We build robust, type-safe software, integrate database layers & AI models, and deploy to secure, scalable cloud infrastructure."
+      },
+      {
+        "step": "04",
+        "title": "Evolution & Ongoing Support",
+        "desc": "We track performance metrics, fine-tune models, and support your business growth with dedicated engineering assistance."
+      }
+    ]
+  },
+  "contact": {
+    "badge": "DIRECT CONTACT",
+    "title": "Ready to elevate your business with Averiq?",
+    "subtitle": "Tell us about your business or project. We will respond within 24 hours with an initial diagnosis and proposal.",
+    "form": {
+      "name": "Full Name",
+      "name_placeholder": "e.g. John Doe",
+      "email": "Corporate / Personal Email",
+      "email_placeholder": "john@company.com",
+      "phone": "Phone / WhatsApp",
+      "phone_placeholder": "+1 (555) 000-0000",
+      "company": "Company or Venture (optional)",
+      "company_placeholder": "Your company name",
+      "service": "Primary Solution of Interest",
+      "service_options": {
+        "placeholder": "Select a solution...",
+        "chatbot_support": "24/7 Support Chatbot",
+        "chatbot_sales": "Sales & Prospecting Chatbot",
+        "pos": "Small Business POS",
+        "accounts_payable": "Accounts Payable & Suppliers",
+        "clinics": "Clinics: Appointments & Insurance",
+        "consulting": "Enterprise AI Consulting",
+        "saas_custom": "Custom Niche SaaS",
+        "other": "General Inquiry"
+      },
+      "message": "Project Details & Message",
+      "message_placeholder": "Briefly describe your challenge or what you aim to build...",
+      "submit": "Send Inquiry",
+      "submitting": "Sending...",
+      "success_title": "Message Sent Successfully!",
+      "success_desc": "Thank you for reaching out to Averiq. One of our specialists will get back to you shortly.",
+      "error_desc": "An error occurred while sending your message. Please try again or reach out directly on WhatsApp."
+    },
+    "direct_channels": {
+      "title": "Direct Communication Channels",
+      "whatsapp_label": "Direct WhatsApp",
+      "whatsapp_sub": "Fast response for immediate inquiries",
+      "instagram_label": "Instagram",
+      "instagram_sub": "@averiq.ai — Tech insights & updates",
+      "facebook_label": "Facebook",
+      "facebook_sub": "Averiq community and announcements"
+    }
+  },
+  "footer": {
+    "tagline": "Intelligence that works. Building the future of software for real-world businesses.",
+    "solutions_title": "Solutions",
+    "company_title": "Averiq",
+    "rights": "All rights reserved.",
+    "privacy": "Privacy Policy",
+    "terms": "Terms of Service"
+  }
+}

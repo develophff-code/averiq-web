@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <defs>
+    <linearGradient id="averiqGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00D2FF" />
+      <stop offset="50%" stop-color="#0062FF" />
+      <stop offset="100%" stop-color="#6366F1" />
+    </linearGradient>
+  </defs>
+  <polygon points="50,10 88,32 88,78 50,98 12,78 12,32" stroke="url(#averiqGrad)" stroke-width="4" fill="#0C1322" fill-opacity="0.85"/>
+  <path d="M50 24L74 72H60L50 50L40 72H26L50 24Z" fill="url(#averiqGrad)"/>
+  <circle cx="50" cy="50" r="4.5" fill="#00F0FF"/>
+  <line x1="50" y1="24" x2="50" y2="50" stroke="#00F0FF" stroke-width="2" stroke-dasharray="2 2"/>
+</svg>

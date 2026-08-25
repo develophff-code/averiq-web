@@ -1,0 +1,46 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum ServiceInterest {
+  CHATBOT_SUPPORT
+  CHATBOT_SALES
+  POS
+  ACCOUNTS_PAYABLE
+  CLINICS
+  CONSULTING
+  SAAS_CUSTOM
+  OTHER
+}
+
+enum LeadStatus {
+  NUEVO
+  CONTACTADO
+  EN_EVALUACION
+  CONVERTIDO
+  DESCARTADO
+}
+
+model Lead {
+  id              String          @id @default(uuid())
+  fullName        String          @map("full_name")
+  email           String
+  phone           String?
+  company         String?
+  serviceInterest ServiceInterest @map("service_interest")
+  message         String
+  locale          String          @default("es")
+  status          LeadStatus      @default(NUEVO)
+  ipAddress       String?         @map("ip_address")
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
+
+  @@index([email])
+  @@index([status])
+  @@map("leads")
+}

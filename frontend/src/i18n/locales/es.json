@@ -1,0 +1,158 @@
+{
+  "nav": {
+    "solutions": "Soluciones",
+    "saas": "SaaS Especializados",
+    "interactive": "Simulador",
+    "consulting": "Consultoría AI",
+    "methodology": "Metodología",
+    "contact": "Contacto",
+    "cta": "Hablemos"
+  },
+  "hero": {
+    "badge": "✦ INTELIGENCIA ARTIFICIAL APLICADA & SAAS A MEDIDA",
+    "title_main": "Inteligencia que",
+    "title_highlight": "funciona.",
+    "title_sub": "Software diseñado para potenciar tu operación diaria.",
+    "description": "En Averiq creamos plataformas SaaS de nicho, chatbots autónomos de atención y ventas, sistemas POS ágiles, conciliación de cuentas a pagar y gestión clínica inteligente. Sin humo: soluciones pragmáticas con impacto medible.",
+    "cta_primary": "Iniciar Consulta / Demo",
+    "cta_whatsapp": "Chatear por WhatsApp",
+    "social_label": "Canales directos de contacto:",
+    "stats": [
+      { "value": "+70%", "label": "Reducción en tiempos de respuesta" },
+      { "value": "24/7", "label": "Operación continua con IA" },
+      { "value": "100%", "label": "Adaptado a flujos específicos" }
+    ]
+  },
+  "solutions": {
+    "badge": "PORTFOLIO DE SOLUCIONES",
+    "title": "Tecnología precisa para cada área de tu negocio",
+    "subtitle": "No creemos en soluciones genéricas. Desarrollamos herramientas hechas a la medida de tu industria y tus cuellos de botella reales.",
+    "items": {
+      "chatbot_support": {
+        "tag": "ATENCIÓN & SOPORTE",
+        "title": "Chatbots de Atención 24/7",
+        "desc": "Agentes conversacionales inteligentes que resuelven dudas frecuentes, gestionan reclamos y canalizan tickets complejos sin fricción.",
+        "bullets": ["Integración con WhatsApp y Web", "Respuestas contextuales con base de conocimiento", "Escalamiento humano inteligente"]
+      },
+      "chatbot_sales": {
+        "tag": "VENTAS & PROSPECCIÓN",
+        "title": "Chatbots de Ventas y Calificación",
+        "desc": "Convierte visitantes en clientes calificados las 24 horas. Captura datos clave, agenda llamadas y nutre tu pipeline en piloto automático.",
+        "bullets": ["Calificación instantánea de leads", "Sincronización con CRM y email", "Catálogo dinámico de productos y cotizaciones"]
+      },
+      "pos_system": {
+        "tag": "COMERCIO & RETAIL",
+        "title": "POS Inteligente para Pequeños Negocios",
+        "desc": "Punto de venta intuitivo y veloz. Control de stock en tiempo real, múltiples medios de pago y reportes analíticos desde cualquier dispositivo.",
+        "bullets": ["Facturación ágil y ticket digital", "Control de inventario multi-sucursal", "Métricas de ventas y rendimiento en vivo"]
+      },
+      "accounts_payable": {
+        "tag": "FINTECH & OPERACIONES",
+        "title": "Cuentas a Pagar & Proveedores",
+        "desc": "Automatización del circuito de compras y facturación. Lectura OCR de comprobantes, calendario de vencimientos y conciliación sin errores.",
+        "bullets": ["Extracción automática de datos de facturas", "Alertas y prevención de pagos duplicados", "Flujo de aprobación multi-nivel"]
+      },
+      "clinics_health": {
+        "tag": "SALUD & CONSULTORIOS",
+        "title": "Gestión de Consultorios y Obras Sociales",
+        "desc": "Organización integral para profesionales y centros de salud. Control inteligente de turnos, recordatorios automatizados y validación de cobertura.",
+        "bullets": ["Agenda online autogestionable", "Recordatorios preventivos por WhatsApp", "Gestión de obras sociales y fichas de pacientes"]
+      },
+      "ai_consulting": {
+        "tag": "ESTRATEGIA & ENTERPRISE",
+        "title": "Consultoría e Integración de IA",
+        "desc": "Acompañamos a tu empresa a adoptar Inteligencia Artificial real: diagnóstico de procesos, modelos locales/privados y automatizaciones RPA.",
+        "bullets": ["Auditoría de flujos y datos de negocio", "Desarrollo de modelos LLM personalizados", "Seguridad y gobernanza de datos corporativos"]
+      }
+    }
+  },
+  "simulator": {
+    "badge": "EXPERIENCIA INTERACTIVA",
+    "title": "Simulá el impacto en tu rubro",
+    "subtitle": "Seleccioná un caso de uso para ver cómo opera el ecosistema Averiq en tiempo real.",
+    "tabs": {
+      "chatbot": "Chatbot de Atención",
+      "pos": "Punto de Venta (POS)",
+      "clinics": "Turnos & Consultorio",
+      "finance": "Cuentas a Pagar"
+    }
+  },
+  "methodology": {
+    "badge": "CÓMO TRABAJAMOS",
+    "title": "Del problema a la solución en producción",
+    "subtitle": "Un método ágil, transparente y enfocado en entregar valor desde el primer sprint.",
+    "steps": [
+      {
+        "step": "01",
+        "title": "Diagnóstico & Arquitectura",
+        "desc": "Analizamos tus procesos actuales, identificamos cuellos de botella y definimos la mejor arquitectura sin sobrecostos."
+      },
+      {
+        "step": "02",
+        "title": "Diseño & Prototipado Rápido",
+        "desc": "Diseñamos interfaces intuitivas y validamos un prototipo funcional para asegurar que responda exactamente a tu operativa."
+      },
+      {
+        "step": "03",
+        "title": "Desarrollo & Despliegue",
+        "desc": "Construimos con código robusto, integramos bases de datos e IA, y desplegamos en infraestructura escalable y segura."
+      },
+      {
+        "step": "04",
+        "title": "Evolución & Soporte Continuo",
+        "desc": "Monitoreamos el rendimiento, ajustamos modelos y acompañamos el crecimiento de tu negocio con soporte dedicado."
+      }
+    ]
+  },
+  "contact": {
+    "badge": "CONTACTO DIRECTO",
+    "title": "¿Listo para dar el salto con Averiq?",
+    "subtitle": "Contanos sobre tu negocio o proyecto. Te responderemos en menos de 24 horas con una propuesta y diagnóstico inicial.",
+    "form": {
+      "name": "Nombre completo",
+      "name_placeholder": "Ej: Juan Pérez",
+      "email": "Correo electrónico corporativo / personal",
+      "email_placeholder": "juan@empresa.com",
+      "phone": "Teléfono / WhatsApp",
+      "phone_placeholder": "+54 9 11 1234 5678",
+      "company": "Empresa o Emprendimiento (opcional)",
+      "company_placeholder": "Nombre de tu empresa",
+      "service": "Solución de mayor interés",
+      "service_options": {
+        "placeholder": "Seleccionar solución...",
+        "chatbot_support": "Chatbot de Atención 24/7",
+        "chatbot_sales": "Chatbot de Ventas & Prospección",
+        "pos": "POS para Pequeños Negocios",
+        "accounts_payable": "Cuentas a Pagar a Proveedores",
+        "clinics": "Consultorios: Turnos & Obras Sociales",
+        "consulting": "Consultoría de Soluciones de AI",
+        "saas_custom": "Desarrollo SaaS a Medida",
+        "other": "Otra consulta general"
+      },
+      "message": "Mensaje o detalle de tu requerimiento",
+      "message_placeholder": "Describí brevemente qué buscas resolver o implementar...",
+      "submit": "Enviar Consulta",
+      "submitting": "Enviando...",
+      "success_title": "¡Mensaje enviado con éxito!",
+      "success_desc": "Gracias por contactar a Averiq. Uno de nuestros especialistas se comunicará a la brevedad.",
+      "error_desc": "Hubo un error al enviar el mensaje. Por favor intenta nuevamente o contactanos directamente por WhatsApp."
+    },
+    "direct_channels": {
+      "title": "Canales de comunicación directa",
+      "whatsapp_label": "WhatsApp Directo",
+      "whatsapp_sub": "Respuesta rápida para consultas inmediatas",
+      "instagram_label": "Instagram",
+      "instagram_sub": "@averiq.ai — Novedades y tecnología",
+      "facebook_label": "Facebook",
+      "facebook_sub": "Comunidad y actualizaciones de Averiq"
+    }
+  },
+  "footer": {
+    "tagline": "Inteligencia que funciona. Creando el software del futuro para negocios reales.",
+    "solutions_title": "Soluciones",
+    "company_title": "Averiq",
+    "rights": "Todos los derechos reservados.",
+    "privacy": "Privacidad",
+    "terms": "Términos de Servicio"
+  }
+}
