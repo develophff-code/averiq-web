@@ -6,10 +6,11 @@ import {
   Globe, 
   ArrowRight, 
   Bot, 
-  Sparkles,
-  Layers,
-  ChevronDown
+  Sparkles, 
+  Layers, 
+  ChevronDown 
 } from 'lucide-react';
+import averiqLogo from '../assets/averiq_logo_extendido.jpg';
 
 interface NavbarProps {
   onOpenContactModal?: () => void;
@@ -49,38 +50,27 @@ export const Navbar: React.FC<NavbarProps> = () => {
     <header 
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
         isScrolled 
-          ? 'bg-[#080C14]/90 backdrop-blur-xl border-b border-slate-800/80 shadow-2xl shadow-black/40 py-3.5' 
-          : 'bg-transparent py-5'
+          ? 'bg-[#080C14]/90 backdrop-blur-xl border-b border-slate-800/80 shadow-2xl shadow-black/40 py-2.5' 
+          : 'bg-transparent py-4'
       }`}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between">
           
-          {/* Logo */}
+          {/* Logo Extendido Averiq */}
           <a 
             href="#" 
-            className="flex items-center gap-3 group focus:outline-none"
+            className="flex items-center group focus:outline-none"
             onClick={(e) => {
               e.preventDefault();
               window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
           >
-            <div className="relative w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-400 via-blue-600 to-indigo-600 p-[1.5px] shadow-lg shadow-cyan-500/20 group-hover:shadow-cyan-500/40 transition-all duration-300">
-              <div className="w-full h-full bg-[#090D16] rounded-[10px] flex items-center justify-center">
-                <span className="font-heading font-extrabold text-lg text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 to-blue-400">
-                  A
-                </span>
-              </div>
-            </div>
-            <div className="flex flex-col">
-              <span className="font-heading font-bold text-xl tracking-tight text-white flex items-center gap-1.5">
-                Averiq
-                <span className="inline-block w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span>
-              </span>
-              <span className="text-[10px] tracking-wider uppercase text-slate-400 font-medium -mt-1">
-                {isEs ? 'Inteligencia que funciona' : 'Intelligence that works'}
-              </span>
-            </div>
+            <img 
+              src={averiqLogo} 
+              alt="Averiq - AI Consulting & SaaS Development" 
+              className="h-10 md:h-12 w-auto object-contain mix-blend-screen filter drop-shadow-[0_0_12px_rgba(0,210,255,0.25)] group-hover:drop-shadow-[0_0_20px_rgba(0,210,255,0.5)] group-hover:scale-[1.02] transition-all duration-300"
+            />
           </a>
 
           {/* Desktop Navigation */}

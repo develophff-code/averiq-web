@@ -6,6 +6,7 @@ import {
   ArrowUp
 } from 'lucide-react';
 import { InstagramIcon, FacebookIcon } from './SocialIcons';
+import averiqLogo from '../assets/averiq_logo_extendido.jpg';
 
 export const Footer: React.FC = () => {
   const { t, i18n } = useTranslation();
@@ -27,13 +28,12 @@ export const Footer: React.FC = () => {
           
           {/* Brand Col */}
           <div className="md:col-span-5 space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-cyan-400 to-blue-600 p-[1.5px]">
-                <div className="w-full h-full bg-[#090D16] rounded-[10px] flex items-center justify-center font-heading font-extrabold text-cyan-300">
-                  A
-                </div>
-              </div>
-              <span className="font-heading font-bold text-lg text-white">Averiq</span>
+            <div className="flex items-center">
+              <img 
+                src={averiqLogo} 
+                alt="Averiq - AI Consulting & SaaS Development" 
+                className="h-12 md:h-14 w-auto object-contain mix-blend-screen filter drop-shadow-[0_0_12px_rgba(0,210,255,0.2)] -ml-2"
+              />
             </div>
             <p className="text-slate-400 max-w-sm leading-relaxed text-xs">
               {t('footer.tagline')}
