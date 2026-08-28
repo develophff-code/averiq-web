@@ -114,7 +114,7 @@ export const Hero: React.FC = () => {
 
                   {/* Instagram */}
                   <a
-                    href="https://instagram.com"
+                    href="https://www.instagram.com/averiqsj.ai"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700/80 hover:border-pink-500/60 hover:bg-pink-950/30 text-slate-300 hover:text-pink-400 text-xs font-medium transition-all group"
@@ -126,7 +126,7 @@ export const Hero: React.FC = () => {
 
                   {/* Facebook */}
                   <a
-                    href="https://facebook.com"
+                    href="https://www.facebook.com/averiqsj"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700/80 hover:border-blue-500/60 hover:bg-blue-950/30 text-slate-300 hover:text-blue-400 text-xs font-medium transition-all group"

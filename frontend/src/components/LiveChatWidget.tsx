@@ -40,8 +40,8 @@ export const LiveChatWidget: React.FC = () => {
           : "Hello! At Averiq we engineer custom SaaS: Chatbots, POS, Accounts Payable, Clinic Management and Enterprise AI. Would you like to book a call or see a demo?";
       } else if (lower.includes("demo") || lower.includes("contacto") || lower.includes("contact") || lower.includes("precio")) {
         reply = isEs
-          ? "Podés completar el formulario de contacto aquí abajo o hablar directamente con nuestros directores por WhatsApp al +54 9 11 0000 0000."
-          : "You can submit the contact form below or reach our directors directly via WhatsApp at +54 9 11 0000 0000.";
+          ? "Podés completar el formulario de contacto aquí abajo o hablar directamente con nuestros directores por WhatsApp al +54 9 264 585-9829."
+          : "You can submit the contact form below or reach our directors directly via WhatsApp at +54 9 264 585-9829.";
       } else {
         reply = isEs
           ? `Excelente consulta sobre "${text}". Podemos adaptar nuestros módulos específicamente a los requerimientos de tu empresa.`
@@ -51,6 +51,10 @@ export const LiveChatWidget: React.FC = () => {
       setMessages(prev => [...prev, { sender: 'bot', text: reply }]);
       setTyping(false);
     }, 700);
+  };
+
+  const handleWhatsAppRedirect = () => {
+    window.open("https://wa.me/5492645859829?text=" + encodeURIComponent("Hola Averiq! Vengo del asistente del sitio web y me gustaría hablar con un asesor."), "_blank");
   };
 
   return (
@@ -136,8 +140,8 @@ export const LiveChatWidget: React.FC = () => {
               {isEs ? 'Pedir Demo' : 'Request Demo'}
             </button>
             <button
-              onClick={() => handleSend(isEs ? "Hablar con un asesor humano" : "Talk to a human")}
-              className="whitespace-nowrap px-2.5 py-1 rounded-full bg-slate-900 border border-slate-800 text-emerald-400 transition"
+              onClick={handleWhatsAppRedirect}
+              className="whitespace-nowrap px-2.5 py-1 rounded-full bg-slate-900 border border-slate-800 text-emerald-400 hover:bg-emerald-950/40 transition"
             >
               WhatsApp
             </button>

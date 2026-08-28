@@ -40,27 +40,48 @@ export const ContactSection: React.FC = () => {
     setErrorMessage('');
 
     try {
-      // Attempt backend API submission
-      const response = await fetch('/api/contact', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...formData,
-          locale: i18n.language
-        })
-      });
+      let response: Response;
+      try {
+        response = await fetch('/api/contact', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ...formData,
+            locale: i18n.language
+          })
+        });
+        if (response.status === 404) {
+          response = await fetch('http://localhost:5000/api/contact', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              ...formData,
+              locale: i18n.language
+            })
+          });
+        }
+      } catch (netErr) {
+        response = await fetch('http://localhost:5000/api/contact', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ...formData,
+            locale: i18n.language
+          })
+        });
+      }
 
-      // Even in offline/standalone mock mode, succeed smoothly
-      if (!response.ok && response.status !== 404) {
-        throw new Error('Error en el servidor');
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || (isEs ? 'Error al procesar la solicitud en el servidor' : 'Server error processing inquiry'));
       }
 
       setIsSubmitted(true);
       
-      // Trigger confetti celebration
       try {
         confetti({
-          particleCount: 80,
+          particleCount: 90,
           spread: 70,
           origin: { y: 0.6 }
         });
@@ -68,25 +89,29 @@ export const ContactSection: React.FC = () => {
         // ignore confetti errors
       }
 
-    } catch (err) {
-      // Fallback: mock success for demo if backend isn't actively running
-      setIsSubmitted(true);
-      try {
-        confetti({
-          particleCount: 80,
-          spread: 70,
-          origin: { y: 0.6 }
-        });
-      } catch (e) {}
+    } catch (err: any) {
+      console.error('[Contact Form Submit Error]', err);
+      const isConnectionError = err.message?.includes('Failed to fetch') || err.message?.includes('NetworkError') || err.message?.includes('fetch');
+      setErrorMessage(
+        isConnectionError
+          ? (isEs 
+              ? 'No se pudo conectar con el servidor backend (puerto 5000). Asegúrate de tener "npm run dev" ejecutándose en la carpeta backend.' 
+              : 'Could not connect to the backend server (port 5000). Please make sure "npm run dev" is running in the backend folder.')
+          : (err.message || (isEs ? 'Hubo un error al enviar el formulario. Por favor intenta nuevamente.' : 'There was an error submitting the form. Please try again.'))
+      );
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const whatsappUrl = "https://wa.me/5491100000000?text=" + encodeURIComponent(
-    isEs 
-      ? `Hola Averiq! Mi nombre es ${formData.fullName || 'un interesado'}. Me gustaría consultar sobre sus soluciones de software e IA.` 
-      : `Hello Averiq! My name is ${formData.fullName || 'an inquiry'}. I'd like to ask about your software and AI solutions.`
+  const whatsappUrl = "https://wa.me/5492645859829?text=" + encodeURIComponent(
+    formData.fullName.trim()
+      ? (isEs 
+          ? `¡Hola Averiq! Mi nombre es ${formData.fullName.trim()}. Me gustaría consultar sobre sus soluciones de software e Inteligencia Artificial.` 
+          : `Hello Averiq! My name is ${formData.fullName.trim()}. I would like to inquire about your software and AI solutions.`)
+      : (isEs 
+          ? "¡Hola Averiq! Me gustaría recibir información y asesoramiento sobre sus soluciones de software e Inteligencia Artificial." 
+          : "Hello Averiq! I would like to receive information and consultation regarding your software and AI solutions.")
   );
 
   return (
@@ -144,7 +169,7 @@ export const ContactSection: React.FC = () => {
 
                 {/* Instagram */}
                 <a
-                  href="https://instagram.com"
+                  href="https://www.instagram.com/averiqsj.ai"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="p-4 rounded-2xl bg-slate-900/90 border border-pink-500/30 hover:border-pink-400 hover:bg-pink-950/20 transition-all duration-300 flex items-center gap-4 group"
@@ -164,7 +189,7 @@ export const ContactSection: React.FC = () => {
 
                 {/* Facebook */}
                 <a
-                  href="https://facebook.com"
+                  href="https://www.facebook.com/averiqsj"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="p-4 rounded-2xl bg-slate-900/90 border border-blue-500/30 hover:border-blue-400 hover:bg-blue-950/20 transition-all duration-300 flex items-center gap-4 group"
