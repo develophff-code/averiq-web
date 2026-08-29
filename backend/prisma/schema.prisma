@@ -36,11 +36,15 @@ model Lead {
   message         String
   locale          String          @default("es")
   status          LeadStatus      @default(NUEVO)
+  source          String          @default("web_form")
+  notes           String?
+  metadata        Json?
   ipAddress       String?         @map("ip_address")
   createdAt       DateTime        @default(now()) @map("created_at")
   updatedAt       DateTime        @updatedAt @map("updated_at")
 
   @@index([email])
   @@index([status])
+  @@index([createdAt])
   @@map("leads")
 }
