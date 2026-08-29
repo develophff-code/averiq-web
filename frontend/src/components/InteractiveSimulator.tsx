@@ -38,11 +38,19 @@ export const InteractiveSimulator: React.FC = () => {
   const [isBotTyping, setIsBotTyping] = useState(false);
   const [lastLatency, setLastLatency] = useState<number | null>(null);
 
-  const chatEndRef = useRef<HTMLDivElement>(null);
+  const chatScrollContainerRef = useRef<HTMLDivElement>(null);
+  const isInitialMount = useRef(true);
 
   useEffect(() => {
-    if (activeTab === 'chatbot') {
-      chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+    if (activeTab === 'chatbot' && chatScrollContainerRef.current) {
+      chatScrollContainerRef.current.scrollTo({
+        top: chatScrollContainerRef.current.scrollHeight,
+        behavior: 'smooth'
+      });
     }
   }, [chatMessages, isBotTyping, activeTab]);
 
@@ -352,7 +360,10 @@ export const InteractiveSimulator: React.FC = () => {
               </div>
 
               {/* Chat Message History */}
-              <div className="h-72 overflow-y-auto space-y-3 p-4 rounded-2xl bg-slate-950/90 border border-slate-800/80">
+              <div 
+                ref={chatScrollContainerRef}
+                className="h-72 overflow-y-auto space-y-3 p-4 rounded-2xl bg-slate-950/90 border border-slate-800/80"
+              >
                 {chatMessages.map((msg, idx) => (
                   <div 
                     key={idx} 
@@ -381,7 +392,6 @@ export const InteractiveSimulator: React.FC = () => {
                     <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-bounce [animation-delay:0.4s]" />
                   </div>
                 )}
-                <div ref={chatEndRef} />
               </div>
 
               {/* Quick Prompt Pills */}

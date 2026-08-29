@@ -6,7 +6,7 @@ import dotenv from 'dotenv';
 import { z } from 'zod';
 import { db, checkDbConnection, isDbAvailable } from './db.js';
 import { sendLeadNotification } from './mailer.js';
-import { generateAveriqChatReply } from './ai.js';
+import { generateAveriqChatReply, generateAssistantReply } from './ai.js';
 
 dotenv.config();
 
@@ -186,6 +186,83 @@ app.post('/api/ai/simulate-chat', async (req: Request, res: Response, next: Next
   try {
     const { message, history, locale } = AiChatSchema.parse(req.body);
     const result = await generateAveriqChatReply(message, history, locale);
+    res.json({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ success: false, message: 'Parámetros inválidos', errors: error.errors });
+    }
+    next(error);
+  }
+});
+
+// ----------------------------------------------------
+// 2.2 FLOATING ASSISTANT WITH AUTONOMOUS LEAD CAPTURE (FASE 4)
+// ----------------------------------------------------
+const AssistantChatSchema = z.object({
+  sessionId: z.string().optional(),
+  message: z.string().min(1, 'El mensaje no puede estar vacío').max(1000),
+  history: z.array(z.object({
+    sender: z.enum(['user', 'bot']),
+    text: z.string()
+  })).optional().default([]),
+  locale: z.string().default('es')
+});
+
+app.post('/api/ai/assistant', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { sessionId, message, history, locale } = AssistantChatSchema.parse(req.body);
+    const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
+
+    const result = await generateAssistantReply(message, history, locale);
+
+    // If the assistant autonomously captured a lead during the conversation
+    if (result.leadCaptured && result.leadData) {
+      const leadPayload = {
+        fullName: result.leadData.fullName || 'Prospecto Web (Asistente)',
+        email: result.leadData.email || `${sessionId || Date.now()}@chat.lead`,
+        phone: result.leadData.phone || null,
+        company: result.leadData.company || null,
+        serviceInterest: result.leadData.serviceInterest || 'saas_custom',
+        message: `[Captura Autónoma Chatbot]: "${message}"\n\nÚltimos mensajes de la sesión:\n${history.slice(-4).map(h => `${h.sender.toUpperCase()}: ${h.text}`).join('\n')}`,
+        locale,
+        source: 'chat_assistant',
+        metadata: {
+          sessionId,
+          chatSnippet: history.slice(-4)
+        }
+      };
+
+      if (db && isDbAvailable) {
+        try {
+          const lead = await db.lead.create({
+            data: {
+              fullName: leadPayload.fullName,
+              email: leadPayload.email,
+              phone: leadPayload.phone,
+              company: leadPayload.company,
+              serviceInterest: mapServiceInterest(leadPayload.serviceInterest) as any,
+              message: leadPayload.message,
+              locale: leadPayload.locale,
+              source: 'chat_assistant',
+              metadata: leadPayload.metadata,
+              ipAddress: clientIp
+            }
+          });
+          console.log(`[Autonomous Lead Captured from Assistant] ID: ${lead.id} - ${lead.fullName} (${lead.email})`);
+        } catch (dbErr) {
+          console.warn('[DB Error] Failed to persist assistant lead:', dbErr);
+        }
+      }
+
+      // Send Resend notification if an email or phone was captured
+      if (result.leadData.email || result.leadData.phone) {
+        sendLeadNotification(leadPayload).catch(err => console.error('[Mailer Assistant Lead Error]', err));
+      }
+    }
+
     res.json({
       success: true,
       data: result

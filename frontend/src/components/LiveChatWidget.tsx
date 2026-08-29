@@ -6,38 +6,128 @@ import {
   Send
 } from 'lucide-react';
 
+interface ChatMessage {
+  sender: 'bot' | 'user';
+  text: string;
+  time?: string;
+  isLeadConfirmation?: boolean;
+}
+
 export const LiveChatWidget: React.FC = () => {
   const { i18n } = useTranslation();
   const isEs = i18n.language.startsWith('es');
 
   const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState<Array<{ sender: 'bot' | 'user'; text: string }>>([
+  const [sessionId] = useState(() => {
+    const existing = typeof window !== 'undefined' ? sessionStorage.getItem('averiq_chat_session') : null;
+    if (existing) return existing;
+    const newId = `session_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    if (typeof window !== 'undefined') sessionStorage.setItem('averiq_chat_session', newId);
+    return newId;
+  });
+
+  const [messages, setMessages] = useState<ChatMessage[]>([
     {
       sender: 'bot',
       text: isEs 
-        ? "¡Hola! 👋 Soy el asistente de Averiq. ¿En qué solución para tu negocio o consulta puedo orientarte?" 
-        : "Hello! 👋 I'm the Averiq assistant. Which solution or service can I guide you with?"
+        ? "¡Hola! 👋 Soy el asistente inteligente de Averiq. ¿En qué solución para tu negocio o consulta puedo orientarte?" 
+        : "Hello! 👋 I'm the Averiq assistant. Which solution or service can I guide you with?",
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     }
   ]);
   const [input, setInput] = useState('');
   const [typing, setTyping] = useState(false);
-  const chatBottomRef = useRef<HTMLDivElement>(null);
+  const widgetScrollContainerRef = useRef<HTMLDivElement>(null);
+  const isWidgetInitialMount = useRef(true);
 
   useEffect(() => {
-    if (isOpen) {
-      chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (isWidgetInitialMount.current) {
+      isWidgetInitialMount.current = false;
+      return;
+    }
+    if (isOpen && widgetScrollContainerRef.current) {
+      widgetScrollContainerRef.current.scrollTo({
+        top: widgetScrollContainerRef.current.scrollHeight,
+        behavior: 'smooth'
+      });
     }
   }, [messages, typing, isOpen]);
 
-  const handleSend = (preset?: string) => {
+  const handleSend = async (preset?: string) => {
     const text = preset || input;
-    if (!text.trim()) return;
+    if (!text.trim() || typing) return;
 
-    setMessages(prev => [...prev, { sender: 'user', text }]);
+    const currentTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    setMessages(prev => [...prev, { sender: 'user', text, time: currentTime }]);
     if (!preset) setInput('');
     setTyping(true);
 
-    setTimeout(() => {
+    try {
+      let response: Response;
+      try {
+        response = await fetch('/api/ai/assistant', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sessionId,
+            message: text,
+            history: messages.slice(-8).map(m => ({ sender: m.sender, text: m.text })),
+            locale: i18n.language
+          })
+        });
+        if (response.status === 404) {
+          response = await fetch('http://localhost:5000/api/ai/assistant', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              sessionId,
+              message: text,
+              history: messages.slice(-8).map(m => ({ sender: m.sender, text: m.text })),
+              locale: i18n.language
+            })
+          });
+        }
+      } catch (netErr) {
+        response = await fetch('http://localhost:5000/api/ai/assistant', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sessionId,
+            message: text,
+            history: messages.slice(-8).map(m => ({ sender: m.sender, text: m.text })),
+            locale: i18n.language
+          })
+        });
+      }
+
+      const resData = await response.json();
+
+      if (resData.success && resData.data?.reply) {
+        const botMsg: ChatMessage = {
+          sender: 'bot',
+          text: resData.data.reply,
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        };
+        
+        const newMsgs: ChatMessage[] = [botMsg];
+
+        if (resData.data.leadCaptured) {
+          newMsgs.push({
+            sender: 'bot',
+            text: isEs
+              ? "⚡ ¡Datos registrados con éxito! Un consultor especializado de Averiq se comunicará a la brevedad."
+              : "⚡ Contact details recorded! An Averiq specialist will reach out shortly.",
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            isLeadConfirmation: true
+          });
+        }
+
+        setMessages(prev => [...prev, ...newMsgs]);
+      } else {
+        throw new Error('Assistant fallback');
+      }
+
+    } catch (err) {
       let reply = "";
       const lower = text.toLowerCase();
 
@@ -47,17 +137,22 @@ export const LiveChatWidget: React.FC = () => {
           : "Hello! At Averiq we engineer custom SaaS: Chatbots, POS, Accounts Payable, Clinic Management and Enterprise AI. Would you like to book a call or see a demo?";
       } else if (lower.includes("demo") || lower.includes("contacto") || lower.includes("contact") || lower.includes("precio")) {
         reply = isEs
-          ? "Podés completar el formulario de contacto aquí abajo o hablar directamente con nuestros directores por WhatsApp al +54 9 264 585-9829."
-          : "You can submit the contact form below or reach our directors directly via WhatsApp at +54 9 264 585-9829.";
+          ? "Podés completar el formulario de contacto o hablar directamente con nuestros directores por WhatsApp al +54 9 264 585-9829."
+          : "You can submit the contact form or reach our directors directly via WhatsApp at +54 9 264 585-9829.";
       } else {
         reply = isEs
           ? `Excelente consulta sobre "${text}". Podemos adaptar nuestros módulos específicamente a los requerimientos de tu empresa.`
           : `Great question regarding "${text}". We can tailor our modules specifically to your business requirements.`;
       }
 
-      setMessages(prev => [...prev, { sender: 'bot', text: reply }]);
+      setMessages(prev => [...prev, { 
+        sender: 'bot', 
+        text: reply,
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      }]);
+    } finally {
       setTyping(false);
-    }, 700);
+    }
   };
 
   const handleWhatsAppRedirect = () => {
@@ -106,31 +201,39 @@ export const LiveChatWidget: React.FC = () => {
           </div>
 
           {/* Messages Body */}
-          <div className="flex-1 p-4 overflow-y-auto space-y-3 bg-[#080C14]/90 text-xs">
+          <div 
+            ref={widgetScrollContainerRef}
+            className="flex-1 p-4 overflow-y-auto space-y-3 bg-[#080C14]/90 text-xs"
+          >
             {messages.map((m, i) => (
               <div
                 key={i}
                 className={`flex flex-col ${m.sender === 'user' ? 'items-end' : 'items-start'}`}
               >
                 <div
-                  className={`max-w-[85%] p-3 rounded-2xl ${
+                  className={`max-w-[85%] p-3 rounded-2xl leading-relaxed ${
                     m.sender === 'user'
-                      ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-br-none'
-                      : 'bg-slate-900 border border-slate-800 text-slate-200 rounded-bl-none'
+                      ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-br-none shadow-md shadow-blue-600/20'
+                      : m.isLeadConfirmation
+                      ? 'bg-emerald-950/80 border border-emerald-500/50 text-emerald-300 font-medium rounded-bl-none shadow-sm'
+                      : 'bg-slate-900 border border-slate-800 text-slate-200 rounded-bl-none shadow-sm'
                   }`}
                 >
                   {m.text}
                 </div>
+                {m.time && (
+                  <span className="text-[9px] font-mono text-slate-500 mt-1 px-1">{m.time}</span>
+                )}
               </div>
             ))}
             {typing && (
-              <div className="p-2.5 rounded-2xl bg-slate-900 border border-slate-800 w-16 flex items-center gap-1">
+              <div className="p-2.5 rounded-2xl bg-slate-900 border border-slate-800 w-24 flex items-center gap-1.5">
+                <span className="text-[10px] font-mono text-cyan-400">Averiq</span>
                 <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-bounce"></span>
                 <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-bounce [animation-delay:0.2s]"></span>
                 <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-bounce [animation-delay:0.4s]"></span>
               </div>
             )}
-            <div ref={chatBottomRef} />
           </div>
 
           {/* Quick suggestions */}
