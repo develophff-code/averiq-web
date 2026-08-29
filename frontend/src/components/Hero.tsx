@@ -22,7 +22,7 @@ export const Hero: React.FC = () => {
     if (el) el.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const whatsappUrl = "https://wa.me/5491100000000?text=" + encodeURIComponent(
+  const whatsappUrl = "https://wa.me/5492645859829?text=" + encodeURIComponent(
     isEs 
       ? "Hola Averiq! Me interesa conocer más sobre sus soluciones de software e Inteligencia Artificial." 
       : "Hello Averiq! I would like to learn more about your software and AI solutions."
@@ -68,7 +68,7 @@ export const Hero: React.FC = () => {
               {t('hero.description')}
             </p>
 
-            {/* CTAs Button Group */}
+            {/* CTAs Button Group. */}
             <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4 pt-2">
               {/* Primary Contact CTA */}
               <button
