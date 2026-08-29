@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { 
   Bot, 
@@ -21,6 +21,13 @@ export const LiveChatWidget: React.FC = () => {
   ]);
   const [input, setInput] = useState('');
   const [typing, setTyping] = useState(false);
+  const chatBottomRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages, typing, isOpen]);
 
   const handleSend = (preset?: string) => {
     const text = preset || input;
@@ -123,6 +130,7 @@ export const LiveChatWidget: React.FC = () => {
                 <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-bounce [animation-delay:0.4s]"></span>
               </div>
             )}
+            <div ref={chatBottomRef} />
           </div>
 
           {/* Quick suggestions */}

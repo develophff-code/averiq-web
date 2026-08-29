@@ -6,6 +6,7 @@ import dotenv from 'dotenv';
 import { z } from 'zod';
 import { db, checkDbConnection, isDbAvailable } from './db.js';
 import { sendLeadNotification } from './mailer.js';
+import { generateAveriqChatReply } from './ai.js';
 
 dotenv.config();
 
@@ -164,6 +165,34 @@ app.post('/api/contact', contactLimiter, async (req: Request, res: Response, nex
         message: 'Datos de formulario inválidos',
         errors: error.errors
       });
+    }
+    next(error);
+  }
+});
+
+// ----------------------------------------------------
+// 2.1 AI CHAT SIMULATION ENDPOINT (FASE 3)
+// ----------------------------------------------------
+const AiChatSchema = z.object({
+  message: z.string().min(1, 'El mensaje no puede estar vacío').max(1000),
+  history: z.array(z.object({
+    sender: z.enum(['user', 'bot']),
+    text: z.string()
+  })).optional().default([]),
+  locale: z.string().default('es')
+});
+
+app.post('/api/ai/simulate-chat', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { message, history, locale } = AiChatSchema.parse(req.body);
+    const result = await generateAveriqChatReply(message, history, locale);
+    res.json({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ success: false, message: 'Parámetros inválidos', errors: error.errors });
     }
     next(error);
   }

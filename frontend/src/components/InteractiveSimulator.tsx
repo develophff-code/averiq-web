@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { 
   Bot, 
@@ -10,7 +10,11 @@ import {
   CheckCircle, 
   ShoppingCart, 
   ShieldCheck, 
-  RefreshCw
+  RefreshCw,
+  Trash2,
+  Calendar,
+  Clock,
+  Cpu
 } from 'lucide-react';
 
 export const InteractiveSimulator: React.FC = () => {
@@ -18,22 +22,33 @@ export const InteractiveSimulator: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'chatbot' | 'pos' | 'clinics' | 'finance'>('chatbot');
   const isEs = i18n.language.startsWith('es');
 
-  // --- CHATBOT SIMULATOR STATE ---
-  const [chatMessages, setChatMessages] = useState<Array<{ sender: 'user' | 'bot'; text: string; time: string }>>([
+  // =========================================================================
+  // 1. CHATBOT SIMULATOR STATE & AI INTEGRATION (GEMINI REAL-TIME)
+  // =========================================================================
+  const [chatMessages, setChatMessages] = useState<Array<{ sender: 'user' | 'bot'; text: string; time: string; latency?: number }>>([
     {
       sender: 'bot',
       text: isEs 
-        ? "¡Hola! Soy el asistente inteligente de Averiq. ¿En qué puedo ayudarte hoy?"
-        : "Hello! I am Averiq's intelligent assistant. How can I help you today?",
-      time: "10:00"
+        ? "¡Hola! Soy el Agente Técnico de Averiq impulsado por IA en tiempo real. Pregúntame sobre arquitectura, integraciones con WhatsApp, POS, turnos médicos o desarrollo SaaS a medida."
+        : "Hello! I am Averiq's real-time AI Technical Agent. Ask me about system architecture, WhatsApp integration, POS, clinic management, or custom SaaS engineering.",
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     }
   ]);
   const [chatInput, setChatInput] = useState('');
   const [isBotTyping, setIsBotTyping] = useState(false);
+  const [lastLatency, setLastLatency] = useState<number | null>(null);
 
-  const handleSendChat = (textToSend?: string) => {
+  const chatEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (activeTab === 'chatbot') {
+      chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [chatMessages, isBotTyping, activeTab]);
+
+  const handleSendChat = async (textToSend?: string) => {
     const query = textToSend || chatInput;
-    if (!query.trim()) return;
+    if (!query.trim() || isBotTyping) return;
 
     const userMsg = {
       sender: 'user' as const,
@@ -45,7 +60,56 @@ export const InteractiveSimulator: React.FC = () => {
     if (!textToSend) setChatInput('');
     setIsBotTyping(true);
 
-    setTimeout(() => {
+    try {
+      let response: Response;
+      try {
+        response = await fetch('/api/ai/simulate-chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message: query,
+            history: chatMessages.slice(-6).map(m => ({ sender: m.sender, text: m.text })),
+            locale: i18n.language
+          })
+        });
+        if (response.status === 404) {
+          response = await fetch('http://localhost:5000/api/ai/simulate-chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              message: query,
+              history: chatMessages.slice(-6).map(m => ({ sender: m.sender, text: m.text })),
+              locale: i18n.language
+            })
+          });
+        }
+      } catch (netErr) {
+        response = await fetch('http://localhost:5000/api/ai/simulate-chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message: query,
+            history: chatMessages.slice(-6).map(m => ({ sender: m.sender, text: m.text })),
+            locale: i18n.language
+          })
+        });
+      }
+
+      const resData = await response.json();
+
+      if (resData.success && resData.data?.reply) {
+        setLastLatency(resData.data.latencyMs || 420);
+        setChatMessages(prev => [...prev, {
+          sender: 'bot',
+          text: resData.data.reply,
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          latency: resData.data.latencyMs
+        }]);
+      } else {
+        throw new Error('Fallback required');
+      }
+
+    } catch (err) {
       let botResponse = "";
       const lower = query.toLowerCase();
 
@@ -63,8 +127,8 @@ export const InteractiveSimulator: React.FC = () => {
           : "Averiq POS runs on any device (tablet, mobile or PC), issues digital receipts, and keeps multi-branch inventory synced.";
       } else {
         botResponse = isEs
-          ? `Entendido tu interés en "${query}". En Averiq diseñamos la arquitectura precisa para automatizar este flujo con IA y conectarlo con tu base de datos.`
-          : `Understood your inquiry regarding "${query}". At Averiq we engineer the precise architecture to automate this workflow with AI and database sync.`;
+          ? `En Averiq diseñamos la arquitectura precisa para "${query}", conectando modelos de IA con tus bases de datos (PostgreSQL), APIs y WhatsApp Business.`
+          : `At Averiq we engineer the precise architecture for "${query}", connecting AI models with your databases (PostgreSQL), APIs, and WhatsApp Business.`;
       }
 
       setChatMessages(prev => [...prev, {
@@ -72,16 +136,21 @@ export const InteractiveSimulator: React.FC = () => {
         text: botResponse,
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       }]);
+    } finally {
       setIsBotTyping(false);
-    }, 600);
+    }
   };
 
-  // --- POS SIMULATOR STATE ---
+  // =========================================================================
+  // 2. POS SIMULATOR STATE & ADVANCED COMPUTATION
+  // =========================================================================
   const [posCart, setPosCart] = useState<Array<{ id: number; name: string; price: number; qty: number }>>([
-    { id: 1, name: isEs ? "Café Especialidad 250g" : "Specialty Coffee 250g", price: 4500, qty: 1 },
+    { id: 1, name: isEs ? "Café de Especialidad 250g" : "Specialty Coffee 250g", price: 4500, qty: 2 },
     { id: 2, name: isEs ? "Taza Térmica Averiq" : "Averiq Thermal Mug", price: 7800, qty: 1 }
   ]);
   const [posSuccess, setPosSuccess] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<'qr' | 'card' | 'cash'>('qr');
+  const [discountApplied, setDiscountApplied] = useState(false);
 
   const addItemToCart = (item: { name: string; price: number }) => {
     setPosCart(prev => {
@@ -93,7 +162,12 @@ export const InteractiveSimulator: React.FC = () => {
     });
   };
 
-  const posTotal = posCart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+  const removeItem = (id: number) => {
+    setPosCart(prev => prev.filter(item => item.id !== id));
+  };
+
+  const rawTotal = posCart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+  const posTotal = discountApplied ? Math.round(rawTotal * 0.9) : rawTotal;
 
   const handleCheckout = () => {
     if (posCart.length === 0) return;
@@ -101,37 +175,80 @@ export const InteractiveSimulator: React.FC = () => {
     setTimeout(() => {
       setPosSuccess(false);
       setPosCart([]);
-    }, 2500);
+      setDiscountApplied(false);
+    }, 3000);
   };
 
-  // --- CLINICS SIMULATOR STATE ---
+  // =========================================================================
+  // 3. CLINICS SIMULATOR STATE & REALISTIC BOOKING
+  // =========================================================================
   const [selectedDoctor, setSelectedDoctor] = useState("Dra. Florencia Silva (Cardiología)");
+  const [selectedInsurance, setSelectedInsurance] = useState("OSDE 310");
+  const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const [bookingConfirmed, setBookingConfirmed] = useState(false);
 
-  // --- FINANCE SIMULATOR STATE ---
-  const [scannedInvoice, setScannedInvoice] = useState({
-    provider: "Servicios Cloud AWS / Hosting",
-    cuit: "30-71489201-9",
-    number: "FC-A-0001-00049281",
-    amount: "$ 148.500,00",
-    dueDate: "28/08/2026",
-    status: "VALIDADO SIN DUPLICADOS"
-  });
+  const doctorsList = [
+    { name: "Dra. Florencia Silva (Cardiología)", slots: ["09:30 hs", "11:00 hs", "16:15 hs"] },
+    { name: "Dr. Mariano Castro (Traumatología)", slots: ["10:15 hs", "14:30 hs", "18:00 hs"] },
+    { name: "Dra. Lucía Méndez (Dermatología)", slots: ["08:45 hs", "12:30 hs", "15:00 hs"] }
+  ];
+
+  const currentDoctorData = doctorsList.find(d => d.name === selectedDoctor) || doctorsList[0];
+
+  const handleConfirmBooking = (slot: string) => {
+    setSelectedSlot(slot);
+    setBookingConfirmed(true);
+  };
+
+  // =========================================================================
+  // 4. FINANCE / AP OCR SIMULATOR STATE
+  // =========================================================================
+  const invoicePresets = [
+    {
+      provider: "Servicios Cloud AWS / Hosting",
+      cuit: "30-71489201-9",
+      number: "FC-A-0001-00049281",
+      neto: "$ 122.727,27",
+      iva: "$ 25.772,73",
+      amount: "$ 148.500,00",
+      dueDate: "28/08/2026",
+      confidence: "99.8%",
+      status: "VALIDADO SIN DUPLICADOS — APROBADO"
+    },
+    {
+      provider: "Distribuidora Tech Argentina S.A.",
+      cuit: "30-68994321-4",
+      number: "FC-A-0008-00091244",
+      neto: "$ 315.785,12",
+      iva: "$ 66.314,88",
+      amount: "$ 382.100,00",
+      dueDate: "05/09/2026",
+      confidence: "99.4%",
+      status: "VALIDADO SIN DUPLICADOS — APROBADO"
+    },
+    {
+      provider: "Consultora Legal & Tributaria",
+      cuit: "33-70112948-9",
+      number: "FC-A-0002-00018440",
+      neto: "$ 173.553,72",
+      iva: "$ 36.446,28",
+      amount: "$ 210.000,00",
+      dueDate: "12/09/2026",
+      confidence: "99.9%",
+      status: "VALIDADO SIN DUPLICADOS — APROBADO"
+    }
+  ];
+
+  const [invoiceIndex, setInvoiceIndex] = useState(0);
   const [isScanning, setIsScanning] = useState(false);
+  const currentInvoice = invoicePresets[invoiceIndex];
 
   const triggerScan = () => {
     setIsScanning(true);
     setTimeout(() => {
       setIsScanning(false);
-      setScannedInvoice({
-        provider: "Distribuidora Tech Argentina S.A.",
-        cuit: "30-68994321-4",
-        number: "FC-A-0008-00091244",
-        amount: "$ 382.100,00",
-        dueDate: "05/09/2026",
-        status: "VALIDADO SIN DUPLICADOS - APROBADO"
-      });
-    }, 800);
+      setInvoiceIndex(prev => (prev + 1) % invoicePresets.length);
+    }, 600);
   };
 
   return (
@@ -206,77 +323,89 @@ export const InteractiveSimulator: React.FC = () => {
         {/* Dynamic Simulator Container */}
         <div className="max-w-4xl mx-auto rounded-3xl glass-panel-glow border border-slate-700/80 p-6 sm:p-8 shadow-2xl">
           
-          {/* TAB 1: CHATBOT PLAYGROUND */}
+          {/* ========================================================= */}
+          {/* TAB 1: CHATBOT PLAYGROUND (GOOGLE GEMINI REAL-TIME)       */}
+          {/* ========================================================= */}
           {activeTab === 'chatbot' && (
             <div className="space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-800 pb-3 gap-2">
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 rounded-xl bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center text-cyan-400">
                     <Bot className="w-5 h-5" />
                   </div>
                   <div>
-                    <h4 className="text-sm font-bold text-white">Averiq Interactive Support Agent</h4>
-                    <p className="text-[11px] text-slate-400 flex items-center gap-1">
-                      <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
-                      {isEs ? 'Online en tiempo real' : 'Online real-time'}
+                    <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                      Averiq Interactive Support Agent
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    </h4>
+                    <p className="text-[11px] text-slate-400 flex items-center gap-1.5">
+                      <Cpu className="w-3 h-3 text-cyan-400" />
+                      <span>{isEs ? 'Impulsado por Google Gemini en tiempo real' : 'Powered by Google Gemini Real-Time'}</span>
                     </p>
                   </div>
                 </div>
-                <span className="text-[10px] font-mono px-2 py-1 rounded bg-slate-900 border border-slate-800 text-cyan-400">
-                  Model: Averiq-Conversational-v2
-                </span>
+                {lastLatency && (
+                  <span className="text-[10px] font-mono px-2.5 py-1 rounded-full bg-cyan-950/60 border border-cyan-500/40 text-cyan-300 self-start sm:self-auto">
+                    ⚡ Latencia: {lastLatency}ms
+                  </span>
+                )}
               </div>
 
               {/* Chat Message History */}
-              <div className="h-64 overflow-y-auto space-y-3 p-4 rounded-2xl bg-slate-950/80 border border-slate-800/80">
+              <div className="h-72 overflow-y-auto space-y-3 p-4 rounded-2xl bg-slate-950/90 border border-slate-800/80">
                 {chatMessages.map((msg, idx) => (
                   <div 
                     key={idx} 
                     className={`flex flex-col ${msg.sender === 'user' ? 'items-end' : 'items-start'}`}
                   >
                     <div 
-                      className={`max-w-[85%] p-3 rounded-2xl text-xs sm:text-sm ${
+                      className={`max-w-[85%] p-3.5 rounded-2xl text-xs sm:text-sm leading-relaxed ${
                         msg.sender === 'user'
-                          ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-br-none'
-                          : 'bg-slate-900 border border-slate-800 text-slate-200 rounded-bl-none'
+                          ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-br-none shadow-md shadow-blue-600/20'
+                          : 'bg-slate-900/95 border border-slate-800 text-slate-200 rounded-bl-none shadow-sm'
                       }`}
                     >
                       {msg.text}
                     </div>
-                    <span className="text-[9px] font-mono text-slate-500 mt-1 px-1">{msg.time}</span>
+                    <div className="flex items-center gap-2 text-[9px] font-mono text-slate-500 mt-1 px-1">
+                      <span>{msg.time}</span>
+                      {msg.latency && <span>• {msg.latency}ms</span>}
+                    </div>
                   </div>
                 ))}
                 {isBotTyping && (
-                  <div className="flex items-center gap-1.5 p-3 rounded-2xl bg-slate-900 border border-slate-800 w-20">
+                  <div className="flex items-center gap-2 p-3.5 rounded-2xl bg-slate-900 border border-slate-800 w-28">
+                    <span className="text-[10px] font-mono text-cyan-400">Averiq</span>
                     <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-bounce" />
                     <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-bounce [animation-delay:0.2s]" />
                     <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-bounce [animation-delay:0.4s]" />
                   </div>
                 )}
+                <div ref={chatEndRef} />
               </div>
 
               {/* Quick Prompt Pills */}
-              <div className="flex flex-wrap gap-2 pt-1">
-                <span className="text-[11px] text-slate-400 self-center">
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                <span className="text-[11px] text-slate-400">
                   {isEs ? 'Preguntas sugeridas:' : 'Suggested prompts:'}
                 </span>
                 <button
-                  onClick={() => handleSendChat(isEs ? "¿Cómo integran el chatbot con WhatsApp?" : "How do you integrate with WhatsApp?")}
-                  className="text-[11px] px-2.5 py-1 rounded-full bg-slate-900 hover:bg-slate-800 border border-slate-700 text-cyan-300 transition"
+                  onClick={() => handleSendChat(isEs ? "¿Cómo integran el chatbot con WhatsApp Business API?" : "How do you integrate with WhatsApp Business API?")}
+                  className="text-[11px] px-3 py-1 rounded-full bg-slate-900 hover:bg-cyan-950/60 border border-slate-700 hover:border-cyan-500/50 text-cyan-300 transition"
                 >
-                  {isEs ? 'WhatsApp Integration' : 'WhatsApp Integration'}
+                  WhatsApp API
                 </button>
                 <button
-                  onClick={() => handleSendChat(isEs ? "¿Cuánto tarda un SaaS a medida?" : "How long does a custom SaaS take?")}
-                  className="text-[11px] px-2.5 py-1 rounded-full bg-slate-900 hover:bg-slate-800 border border-slate-700 text-cyan-300 transition"
+                  onClick={() => handleSendChat(isEs ? "¿Cómo funciona el módulo de turnos médicos y obras sociales?" : "How does the medical appointment and insurance module work?")}
+                  className="text-[11px] px-3 py-1 rounded-full bg-slate-900 hover:bg-cyan-950/60 border border-slate-700 hover:border-cyan-500/50 text-cyan-300 transition"
                 >
-                  {isEs ? 'Tiempos de entrega' : 'Delivery times'}
+                  {isEs ? 'Consultorios & Obras Sociales' : 'Clinics & Insurance'}
                 </button>
                 <button
-                  onClick={() => handleSendChat(isEs ? "¿Cómo funciona el módulo de turnos médicos?" : "How does the medical appointment module work?")}
-                  className="text-[11px] px-2.5 py-1 rounded-full bg-slate-900 hover:bg-slate-800 border border-slate-700 text-cyan-300 transition"
+                  onClick={() => handleSendChat(isEs ? "¿Qué stack tecnológico usan para desarrollar SaaS a medida?" : "What tech stack do you use for custom SaaS?")}
+                  className="text-[11px] px-3 py-1 rounded-full bg-slate-900 hover:bg-cyan-950/60 border border-slate-700 hover:border-cyan-500/50 text-cyan-300 transition"
                 >
-                  {isEs ? 'Consultorios & Turnos' : 'Clinics & Booking'}
+                  {isEs ? 'Stack Tecnológico' : 'Tech Stack'}
                 </button>
               </div>
 
@@ -287,12 +416,13 @@ export const InteractiveSimulator: React.FC = () => {
                   value={chatInput}
                   onChange={(e) => setChatInput(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleSendChat()}
-                  placeholder={isEs ? "Escribí tu consulta para probar la IA..." : "Type your message to test AI..."}
+                  placeholder={isEs ? "Escribe cualquier consulta técnica para que la IA responda..." : "Ask any technical question for AI to answer..."}
                   className="flex-1 px-4 py-3 rounded-xl bg-slate-900 border border-slate-700 text-white placeholder-slate-500 text-xs sm:text-sm focus:outline-none focus:border-cyan-500"
                 />
                 <button
                   onClick={() => handleSendChat()}
-                  className="px-5 py-3 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black font-bold text-xs sm:text-sm flex items-center gap-1.5 transition"
+                  disabled={isBotTyping || !chatInput.trim()}
+                  className="px-5 py-3 rounded-xl bg-cyan-500 hover:bg-cyan-400 disabled:opacity-40 text-black font-bold text-xs sm:text-sm flex items-center gap-1.5 transition"
                 >
                   <Send className="w-4 h-4" />
                   <span className="hidden sm:inline">{isEs ? 'Enviar' : 'Send'}</span>
@@ -301,7 +431,9 @@ export const InteractiveSimulator: React.FC = () => {
             </div>
           )}
 
-          {/* TAB 2: POS PLAYGROUND */}
+          {/* ========================================================= */}
+          {/* TAB 2: POS PLAYGROUND                                     */}
+          {/* ========================================================= */}
           {activeTab === 'pos' && (
             <div className="space-y-6">
               <div className="flex items-center justify-between border-b border-slate-800 pb-3">
@@ -311,11 +443,11 @@ export const InteractiveSimulator: React.FC = () => {
                   </div>
                   <div>
                     <h4 className="text-sm font-bold text-white">Averiq Smart POS — Punto de Venta Express</h4>
-                    <p className="text-[11px] text-slate-400">Terminal de Cobro & Control de Inventario</p>
+                    <p className="text-[11px] text-slate-400">Terminal de Cobro, Facturación & Control de Inventario</p>
                   </div>
                 </div>
-                <span className="text-[10px] font-mono px-2 py-1 rounded bg-emerald-950/60 border border-emerald-500/40 text-emerald-400">
-                  Caja #01: ACTIVA
+                <span className="text-[10px] font-mono px-2.5 py-1 rounded-full bg-emerald-950/60 border border-emerald-500/40 text-emerald-400">
+                  Caja #01: ONLINE
                 </span>
               </div>
 
@@ -323,37 +455,62 @@ export const InteractiveSimulator: React.FC = () => {
                 {/* Catalog Quick Add */}
                 <div className="space-y-3">
                   <div className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                    {isEs ? 'Productos Frecuentes' : 'Quick Products'}
+                    {isEs ? 'Catálogo Rápido (Tocar para agregar)' : 'Quick Catalog (Click to add)'}
                   </div>
                   <div className="grid grid-cols-2 gap-2.5">
                     <button
                       onClick={() => addItemToCart({ name: isEs ? "Pack 3 Remeras" : "Pack 3 T-Shirts", price: 18500 })}
-                      className="p-3 rounded-xl bg-slate-900 border border-slate-800 hover:border-emerald-500/50 text-left transition flex flex-col justify-between"
+                      className="p-3 rounded-xl bg-slate-900 border border-slate-800 hover:border-emerald-500/50 text-left transition flex flex-col justify-between group"
                     >
-                      <span className="text-xs font-semibold text-white">{isEs ? 'Pack 3 Remeras' : 'Pack 3 T-Shirts'}</span>
+                      <span className="text-xs font-semibold text-white group-hover:text-emerald-300 transition-colors">{isEs ? 'Pack 3 Remeras' : 'Pack 3 T-Shirts'}</span>
                       <span className="text-xs font-mono font-bold text-emerald-400 mt-2">$ 18.500</span>
                     </button>
                     <button
                       onClick={() => addItemToCart({ name: isEs ? "Mochila Urbana" : "Urban Backpack", price: 34000 })}
-                      className="p-3 rounded-xl bg-slate-900 border border-slate-800 hover:border-emerald-500/50 text-left transition flex flex-col justify-between"
+                      className="p-3 rounded-xl bg-slate-900 border border-slate-800 hover:border-emerald-500/50 text-left transition flex flex-col justify-between group"
                     >
-                      <span className="text-xs font-semibold text-white">{isEs ? 'Mochila Urbana' : 'Urban Backpack'}</span>
+                      <span className="text-xs font-semibold text-white group-hover:text-emerald-300 transition-colors">{isEs ? 'Mochila Urbana' : 'Urban Backpack'}</span>
                       <span className="text-xs font-mono font-bold text-emerald-400 mt-2">$ 34.000</span>
                     </button>
                     <button
                       onClick={() => addItemToCart({ name: isEs ? "Auriculares Wireless" : "Wireless Headphones", price: 29900 })}
-                      className="p-3 rounded-xl bg-slate-900 border border-slate-800 hover:border-emerald-500/50 text-left transition flex flex-col justify-between"
+                      className="p-3 rounded-xl bg-slate-900 border border-slate-800 hover:border-emerald-500/50 text-left transition flex flex-col justify-between group"
                     >
-                      <span className="text-xs font-semibold text-white">{isEs ? 'Auriculares BT' : 'BT Headphones'}</span>
+                      <span className="text-xs font-semibold text-white group-hover:text-emerald-300 transition-colors">{isEs ? 'Auriculares BT' : 'BT Headphones'}</span>
                       <span className="text-xs font-mono font-bold text-emerald-400 mt-2">$ 29.900</span>
                     </button>
                     <button
                       onClick={() => addItemToCart({ name: isEs ? "Servicio Técnico Express" : "Express Tech Support", price: 12000 })}
-                      className="p-3 rounded-xl bg-slate-900 border border-slate-800 hover:border-emerald-500/50 text-left transition flex flex-col justify-between"
+                      className="p-3 rounded-xl bg-slate-900 border border-slate-800 hover:border-emerald-500/50 text-left transition flex flex-col justify-between group"
                     >
-                      <span className="text-xs font-semibold text-white">{isEs ? 'Servicio Express' : 'Tech Support'}</span>
+                      <span className="text-xs font-semibold text-white group-hover:text-emerald-300 transition-colors">{isEs ? 'Servicio Express' : 'Tech Support'}</span>
                       <span className="text-xs font-mono font-bold text-emerald-400 mt-2">$ 12.000</span>
                     </button>
+                  </div>
+
+                  {/* Payment method selector */}
+                  <div className="pt-2">
+                    <span className="text-[11px] text-slate-400 block mb-1.5 font-medium">Método de Cobro:</span>
+                    <div className="grid grid-cols-3 gap-2">
+                      <button
+                        onClick={() => setPaymentMethod('qr')}
+                        className={`p-2 rounded-lg text-xs font-semibold border transition ${paymentMethod === 'qr' ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300' : 'bg-slate-900 border-slate-800 text-slate-400'}`}
+                      >
+                        QR Interoperable
+                      </button>
+                      <button
+                        onClick={() => setPaymentMethod('card')}
+                        className={`p-2 rounded-lg text-xs font-semibold border transition ${paymentMethod === 'card' ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300' : 'bg-slate-900 border-slate-800 text-slate-400'}`}
+                      >
+                        Tarjeta / Débito
+                      </button>
+                      <button
+                        onClick={() => setPaymentMethod('cash')}
+                        className={`p-2 rounded-lg text-xs font-semibold border transition ${paymentMethod === 'cash' ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300' : 'bg-slate-900 border-slate-800 text-slate-400'}`}
+                      >
+                        Efectivo
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -361,8 +518,8 @@ export const InteractiveSimulator: React.FC = () => {
                 <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 flex flex-col justify-between space-y-4">
                   <div>
                     <div className="flex items-center justify-between border-b border-slate-800 pb-2 mb-3">
-                      <span className="text-xs font-mono text-slate-400 font-bold">Ticket de Venta #1094</span>
-                      <span className="text-[10px] font-mono text-emerald-400">AFIP / Factura Digital</span>
+                      <span className="text-xs font-mono text-slate-400 font-bold">Ticket Digital #1094</span>
+                      <span className="text-[10px] font-mono text-emerald-400 font-bold">AFIP Factura B</span>
                     </div>
 
                     <div className="space-y-2 max-h-36 overflow-y-auto pr-1">
@@ -372,11 +529,16 @@ export const InteractiveSimulator: React.FC = () => {
                         </div>
                       ) : (
                         posCart.map(item => (
-                          <div key={item.id} className="flex items-center justify-between text-xs">
+                          <div key={item.id} className="flex items-center justify-between text-xs group">
                             <span className="text-slate-300">{item.name} x{item.qty}</span>
-                            <span className="font-mono text-white font-semibold">
-                              $ {(item.price * item.qty).toLocaleString()}
-                            </span>
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono text-white font-semibold">
+                                $ {(item.price * item.qty).toLocaleString()}
+                              </span>
+                              <button onClick={() => removeItem(item.id)} className="text-slate-600 hover:text-rose-400 transition">
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            </div>
                           </div>
                         ))
                       )}
@@ -384,6 +546,19 @@ export const InteractiveSimulator: React.FC = () => {
                   </div>
 
                   <div className="pt-3 border-t border-slate-800 space-y-3">
+                    {/* Discount toggle */}
+                    <div className="flex items-center justify-between text-xs">
+                      <button
+                        onClick={() => setDiscountApplied(!discountApplied)}
+                        className={`text-[11px] underline ${discountApplied ? 'text-emerald-400 font-bold' : 'text-slate-400'}`}
+                      >
+                        {discountApplied ? '✓ Descuento 10% aplicado' : '+ Aplicar Cupón AVERIQ10'}
+                      </button>
+                      {discountApplied && (
+                        <span className="font-mono text-emerald-400 text-xs">-$ {Math.round(rawTotal * 0.1).toLocaleString()}</span>
+                      )}
+                    </div>
+
                     <div className="flex items-center justify-between text-sm">
                       <span className="font-bold text-slate-300">TOTAL:</span>
                       <span className="text-lg font-bold font-mono text-emerald-400">
@@ -392,7 +567,7 @@ export const InteractiveSimulator: React.FC = () => {
                     </div>
 
                     {posSuccess ? (
-                      <div className="p-2.5 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs text-center font-bold flex items-center justify-center gap-2">
+                      <div className="p-3 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs text-center font-bold flex items-center justify-center gap-2">
                         <CheckCircle className="w-4 h-4" />
                         <span>{isEs ? '¡Cobro registrado! Ticket enviado por WhatsApp' : 'Payment processed! Receipt sent via WhatsApp'}</span>
                       </div>
@@ -412,7 +587,9 @@ export const InteractiveSimulator: React.FC = () => {
             </div>
           )}
 
-          {/* TAB 3: CLINICS PLAYGROUND */}
+          {/* ========================================================= */}
+          {/* TAB 3: CLINICS PLAYGROUND                                 */}
+          {/* ========================================================= */}
           {activeTab === 'clinics' && (
             <div className="space-y-6">
               <div className="flex items-center justify-between border-b border-slate-800 pb-3">
@@ -422,74 +599,94 @@ export const InteractiveSimulator: React.FC = () => {
                   </div>
                   <div>
                     <h4 className="text-sm font-bold text-white">Averiq MedTech — Turnos & Obras Sociales</h4>
-                    <p className="text-[11px] text-slate-400">Gestión de Consultorios y Pacientes</p>
+                    <p className="text-[11px] text-slate-400">Gestión Integral de Consultorios, Especialidades y Pacientes</p>
                   </div>
                 </div>
-                <span className="text-[10px] font-mono px-2 py-1 rounded bg-rose-950/60 border border-rose-500/40 text-rose-400">
+                <span className="text-[10px] font-mono px-2.5 py-1 rounded-full bg-rose-950/60 border border-rose-500/40 text-rose-400">
                   Agenda Sincronizada
                 </span>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
                 <div className="space-y-2">
-                  <label className="text-slate-400 font-medium">{isEs ? 'Profesional Médico:' : 'Medical Professional:'}</label>
+                  <label className="text-slate-400 font-medium">{isEs ? 'Profesional Médico / Especialidad:' : 'Medical Professional / Specialty:'}</label>
                   <select
                     value={selectedDoctor}
-                    onChange={(e) => setSelectedDoctor(e.target.value)}
+                    onChange={(e) => {
+                      setSelectedDoctor(e.target.value);
+                      setBookingConfirmed(false);
+                    }}
                     className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white focus:outline-none focus:border-rose-500"
                   >
-                    <option>Dra. Florencia Silva (Cardiología)</option>
-                    <option>Dr. Mariano Castro (Traumatología)</option>
-                    <option>Dra. Lucía Méndez (Dermatología)</option>
+                    {doctorsList.map(d => (
+                      <option key={d.name} value={d.name}>{d.name}</option>
+                    ))}
                   </select>
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-slate-400 font-medium">{isEs ? 'Obra Social / Cobertura:' : 'Health Insurance:'}</label>
-                  <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-emerald-400 font-mono font-bold flex items-center justify-between">
-                    <span>OSDE 310 - AFILIADO ACTIVO</span>
-                    <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                  </div>
+                  <label className="text-slate-400 font-medium">{isEs ? 'Obra Social / Cobertura Médica:' : 'Health Insurance:'}</label>
+                  <select
+                    value={selectedInsurance}
+                    onChange={(e) => setSelectedInsurance(e.target.value)}
+                    className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-emerald-400 font-mono font-bold focus:outline-none focus:border-emerald-500"
+                  >
+                    <option>OSDE 310 - AFILIADO ACTIVO</option>
+                    <option>Swiss Medical - PLAN BLACK</option>
+                    <option>Galeno - COBERTURA 220</option>
+                    <option>Medifé - PLAN PLATA</option>
+                    <option>Particular / Consulta Privada</option>
+                  </select>
                 </div>
               </div>
 
               <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-3">
-                <div className="text-xs font-bold text-slate-300">{isEs ? 'Horarios Disponibles para Mañana:' : 'Available Slots Tomorrow:'}</div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-bold text-slate-300 flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5 text-rose-400" />
+                    {isEs ? 'Turnos Disponibles para Mañana:' : 'Available Slots Tomorrow:'}
+                  </span>
+                  <span className="text-[10px] text-slate-500">Duración: 30 min</span>
+                </div>
+
                 <div className="grid grid-cols-3 gap-2">
-                  <button 
-                    onClick={() => setBookingConfirmed(true)}
-                    className="p-2.5 rounded-xl bg-slate-900 hover:bg-rose-600 hover:text-white border border-slate-800 text-center font-mono text-xs text-slate-200 transition"
-                  >
-                    09:30 hs
-                  </button>
-                  <button 
-                    onClick={() => setBookingConfirmed(true)}
-                    className="p-2.5 rounded-xl bg-slate-900 hover:bg-rose-600 hover:text-white border border-slate-800 text-center font-mono text-xs text-slate-200 transition"
-                  >
-                    11:00 hs
-                  </button>
-                  <button 
-                    onClick={() => setBookingConfirmed(true)}
-                    className="p-2.5 rounded-xl bg-slate-900 hover:bg-rose-600 hover:text-white border border-slate-800 text-center font-mono text-xs text-slate-200 transition"
-                  >
-                    16:15 hs
-                  </button>
+                  {currentDoctorData.slots.map(slot => (
+                    <button 
+                      key={slot}
+                      onClick={() => handleConfirmBooking(slot)}
+                      className={`p-3 rounded-xl border text-center font-mono text-xs transition flex items-center justify-center gap-1.5 ${
+                        selectedSlot === slot && bookingConfirmed
+                          ? 'bg-rose-600 text-white border-rose-500 shadow-md shadow-rose-600/30'
+                          : 'bg-slate-900 hover:bg-rose-950/40 hover:border-rose-500/50 border-slate-800 text-slate-200'
+                      }`}
+                    >
+                      <Clock className="w-3 h-3 text-rose-400" />
+                      <span>{slot}</span>
+                    </button>
+                  ))}
                 </div>
 
                 {bookingConfirmed && (
-                  <div className="mt-3 p-3 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-300 text-xs font-semibold flex items-center justify-between">
-                    <span className="flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-rose-400" />
-                      {isEs ? 'Turno confirmado y notificación enviada por WhatsApp al paciente.' : 'Appointment booked & WhatsApp notification dispatched.'}
-                    </span>
-                    <button onClick={() => setBookingConfirmed(false)} className="text-[10px] underline">Reset</button>
+                  <div className="mt-3 p-3.5 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-300 text-xs font-semibold flex items-center justify-between animate-in fade-in">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                      <div>
+                        <div>¡Turno reservado para las {selectedSlot} con {selectedDoctor.split(' (')[0]}!</div>
+                        <div className="text-[10px] text-rose-400 font-normal mt-0.5">
+                          Cobertura ({selectedInsurance}) validada. Recordatorio programado por WhatsApp.
+                        </div>
+                      </div>
+                    </div>
+                    <button onClick={() => setBookingConfirmed(false)} className="text-[10px] underline ml-2 shrink-0">Nuevo Turno</button>
                   </div>
                 )}
               </div>
             </div>
           )}
 
-          {/* TAB 4: FINANCE / AP PLAYGROUND */}
+          {/* ========================================================= */}
+          {/* TAB 4: FINANCE / AP OCR PLAYGROUND                        */}
+          {/* ========================================================= */}
           {activeTab === 'finance' && (
             <div className="space-y-6">
               <div className="flex items-center justify-between border-b border-slate-800 pb-3">
@@ -499,12 +696,13 @@ export const InteractiveSimulator: React.FC = () => {
                   </div>
                   <div>
                     <h4 className="text-sm font-bold text-white">Averiq FinOps — Cuentas a Pagar & Proveedores</h4>
-                    <p className="text-[11px] text-slate-400">Extracción Inteligente OCR & Control de Pagos</p>
+                    <p className="text-[11px] text-slate-400">Extracción Inteligente OCR, Detección de Duplicados & Control de Pagos</p>
                   </div>
                 </div>
                 <button
                   onClick={triggerScan}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs transition"
+                  disabled={isScanning}
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs transition"
                 >
                   <RefreshCw className={`w-3.5 h-3.5 ${isScanning ? 'animate-spin' : ''}`} />
                   <span>{isEs ? 'Escanear Otra Factura' : 'Scan Next Invoice'}</span>
@@ -515,30 +713,30 @@ export const InteractiveSimulator: React.FC = () => {
               <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-3">
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
                   <div className="p-3 rounded-xl bg-slate-900 border border-slate-800">
-                    <div className="text-[10px] text-slate-500 uppercase font-mono">Proveedor</div>
-                    <div className="font-bold text-white mt-1">{scannedInvoice.provider}</div>
+                    <div className="text-[10px] text-slate-500 uppercase font-mono">Proveedor Detectado</div>
+                    <div className="font-bold text-white mt-1 truncate">{currentInvoice.provider}</div>
                   </div>
                   <div className="p-3 rounded-xl bg-slate-900 border border-slate-800">
-                    <div className="text-[10px] text-slate-500 uppercase font-mono">CUIT Detectado</div>
-                    <div className="font-mono text-cyan-400 font-bold mt-1">{scannedInvoice.cuit}</div>
+                    <div className="text-[10px] text-slate-500 uppercase font-mono">CUIT / Tax ID</div>
+                    <div className="font-mono text-cyan-400 font-bold mt-1">{currentInvoice.cuit}</div>
                   </div>
                   <div className="p-3 rounded-xl bg-slate-900 border border-slate-800">
                     <div className="text-[10px] text-slate-500 uppercase font-mono">N° Comprobante</div>
-                    <div className="font-mono text-slate-300 font-bold mt-1">{scannedInvoice.number}</div>
+                    <div className="font-mono text-slate-300 font-bold mt-1">{currentInvoice.number}</div>
+                  </div>
+                  <div className="p-3 rounded-xl bg-slate-900 border border-slate-800">
+                    <div className="text-[10px] text-slate-500 uppercase font-mono">Neto Gravado + IVA</div>
+                    <div className="font-mono text-slate-300 font-bold mt-1">{currentInvoice.neto} + {currentInvoice.iva}</div>
                   </div>
                   <div className="p-3 rounded-xl bg-slate-900 border border-slate-800">
                     <div className="text-[10px] text-slate-500 uppercase font-mono">Monto Total</div>
-                    <div className="font-mono text-emerald-400 font-bold text-sm mt-1">{scannedInvoice.amount}</div>
+                    <div className="font-mono text-emerald-400 font-bold text-sm mt-1">{currentInvoice.amount}</div>
                   </div>
                   <div className="p-3 rounded-xl bg-slate-900 border border-slate-800">
-                    <div className="text-[10px] text-slate-500 uppercase font-mono">Vencimiento</div>
-                    <div className="font-mono text-amber-400 font-bold mt-1">{scannedInvoice.dueDate}</div>
-                  </div>
-                  <div className="p-3 rounded-xl bg-slate-900 border border-slate-800">
-                    <div className="text-[10px] text-slate-500 uppercase font-mono">Estado Auditoría</div>
+                    <div className="text-[10px] text-slate-500 uppercase font-mono">Confianza OCR & Auditoría</div>
                     <div className="text-[11px] font-mono text-emerald-300 font-bold mt-1 flex items-center gap-1">
                       <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                      <span>{scannedInvoice.status}</span>
+                      <span>{currentInvoice.confidence} — OK</span>
                     </div>
                   </div>
                 </div>
