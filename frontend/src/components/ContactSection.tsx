@@ -40,36 +40,14 @@ export const ContactSection: React.FC = () => {
     setErrorMessage('');
 
     try {
-      let response: Response;
-      try {
-        response = await fetch('/api/contact', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            ...formData,
-            locale: i18n.language
-          })
-        });
-        if (response.status === 404) {
-          response = await fetch('http://localhost:5000/api/contact', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              ...formData,
-              locale: i18n.language
-            })
-          });
-        }
-      } catch (netErr) {
-        response = await fetch('http://localhost:5000/api/contact', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            ...formData,
-            locale: i18n.language
-          })
-        });
-      }
+      const response = await fetch('/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...formData,
+          locale: i18n.language
+        })
+      });
 
       const data = await response.json();
 
@@ -95,8 +73,8 @@ export const ContactSection: React.FC = () => {
       setErrorMessage(
         isConnectionError
           ? (isEs 
-              ? 'No se pudo conectar con el servidor backend (puerto 5000). Asegúrate de tener "npm run dev" ejecutándose en la carpeta backend.' 
-              : 'Could not connect to the backend server (port 5000). Please make sure "npm run dev" is running in the backend folder.')
+              ? 'No se pudo conectar con el servidor. Por favor, intentá de nuevo.' 
+              : 'Could not connect to the server. Please try again.')
           : (err.message || (isEs ? 'Hubo un error al enviar el formulario. Por favor intenta nuevamente.' : 'There was an error submitting the form. Please try again.'))
       );
     } finally {
@@ -104,7 +82,7 @@ export const ContactSection: React.FC = () => {
     }
   };
 
-  const whatsappUrl = "https://wa.me/5492645859829?text=" + encodeURIComponent(
+  const whatsappUrl = "https://wa.me/5492643163414?text=" + encodeURIComponent(
     formData.fullName.trim()
       ? (isEs 
           ? `¡Hola Averiq! Mi nombre es ${formData.fullName.trim()}. Me gustaría consultar sobre sus soluciones de software e Inteligencia Artificial.` 

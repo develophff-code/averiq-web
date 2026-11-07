@@ -62,47 +62,30 @@ export const LiveChatWidget: React.FC = () => {
     if (!preset) setInput('');
     setTyping(true);
 
-    try {
-      let response: Response;
-      try {
-        response = await fetch('/api/ai/assistant', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            sessionId,
-            message: text,
-            history: messages.slice(-8).map(m => ({ sender: m.sender, text: m.text })),
-            locale: i18n.language
-          })
-        });
-        if (response.status === 404) {
-          response = await fetch('http://localhost:5000/api/ai/assistant', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              sessionId,
-              message: text,
-              history: messages.slice(-8).map(m => ({ sender: m.sender, text: m.text })),
-              locale: i18n.language
-            })
-          });
-        }
-      } catch (netErr) {
-        response = await fetch('http://localhost:5000/api/ai/assistant', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            sessionId,
-            message: text,
-            history: messages.slice(-8).map(m => ({ sender: m.sender, text: m.text })),
-            locale: i18n.language
-          })
-        });
-      }
+    let errorMessage = isEs
+      ? 'No pudimos procesar tu mensaje ni confirmar el registro de tus datos. Intentá de nuevo o contactanos por el formulario o WhatsApp.'
+      : 'We could not process your message or confirm your contact details were saved. Please try again or use the contact form or WhatsApp.';
 
+    try {
+      const response = await fetch('/api/ai/assistant', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId,
+          message: text,
+          history: messages.slice(-8).map(m => ({ sender: m.sender, text: m.text })),
+          locale: i18n.language
+        })
+      });
+
+      if (response.status === 429) {
+        errorMessage = isEs
+          ? 'El chat alcanzó su límite de consultas. Intentá más tarde o contactanos por el formulario o WhatsApp.'
+          : 'The chat has reached its request limit. Please try later or use the contact form or WhatsApp.';
+      }
       const resData = await response.json();
 
-      if (resData.success && resData.data?.reply) {
+      if (response.ok && resData.success && resData.data?.reply) {
         const botMsg: ChatMessage = {
           sender: 'bot',
           text: resData.data.reply,
@@ -127,27 +110,10 @@ export const LiveChatWidget: React.FC = () => {
         throw new Error('Assistant fallback');
       }
 
-    } catch (err) {
-      let reply = "";
-      const lower = text.toLowerCase();
-
-      if (lower.includes("hola") || lower.includes("hi") || lower.includes("hello")) {
-        reply = isEs 
-          ? "¡Hola! En Averiq desarrollamos soluciones a medida: Chatbots, POS, Cuentas a Pagar, Turnos médicos y Consultoría de IA. ¿Querés agendar un llamado o ver una demo?"
-          : "Hello! At Averiq we engineer custom SaaS: Chatbots, POS, Accounts Payable, Clinic Management and Enterprise AI. Would you like to book a call or see a demo?";
-      } else if (lower.includes("demo") || lower.includes("contacto") || lower.includes("contact") || lower.includes("precio")) {
-        reply = isEs
-          ? "Podés completar el formulario de contacto o hablar directamente con nuestros directores por WhatsApp al +54 9 264 585-9829."
-          : "You can submit the contact form or reach our directors directly via WhatsApp at +54 9 264 585-9829.";
-      } else {
-        reply = isEs
-          ? `Excelente consulta sobre "${text}". Podemos adaptar nuestros módulos específicamente a los requerimientos de tu empresa.`
-          : `Great question regarding "${text}". We can tailor our modules specifically to your business requirements.`;
-      }
-
+    } catch {
       setMessages(prev => [...prev, { 
         sender: 'bot', 
-        text: reply,
+        text: errorMessage,
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       }]);
     } finally {

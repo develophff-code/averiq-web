@@ -16,8 +16,7 @@ export async function sendLeadNotification(payload: LeadEmailPayload): Promise<v
   const fromEmail = process.env.EMAIL_FROM || 'Averiq Web <onboarding@resend.dev>';
 
   if (!apiKey) {
-    console.log('[Mailer] RESEND_API_KEY not configured. Lead notification logged to console:');
-    console.log(JSON.stringify(payload, null, 2));
+    console.warn('[Mailer] RESEND_API_KEY not configured. Email notification skipped.');
     return;
   }
 
@@ -35,7 +34,7 @@ export async function sendLeadNotification(payload: LeadEmailPayload): Promise<v
             <h1 style="color: #FFFFFF; margin: 0; font-size: 24px; font-weight: 800; letter-spacing: -0.5px;">AVERIQ</h1>
             <p style="color: #E0F2FE; margin: 4px 0 0 0; font-size: 12px; font-weight: 600; text-transform: uppercase;">Nuevo Lead Recibido desde la Web</p>
           </div>
-          
+
           <div style="padding: 28px;">
             <table style="width: 100%; border-collapse: collapse; margin-bottom: 24px;">
               <tr style="border-bottom: 1px solid #1E293B;">
@@ -71,7 +70,7 @@ export async function sendLeadNotification(payload: LeadEmailPayload): Promise<v
               <div style="color: #E2E8F0; font-size: 14px; line-height: 1.6; white-space: pre-wrap;">${payload.message}</div>
             </div>
           </div>
-          
+
           <div style="background: #05080E; padding: 16px; text-align: center; border-top: 1px solid #1E293B; font-size: 11px; color: #64748B;">
             Averiq — Inteligencia que funciona | Notificación automática de sistema
           </div>
@@ -79,7 +78,11 @@ export async function sendLeadNotification(payload: LeadEmailPayload): Promise<v
       `
     });
 
-    console.log('[Mailer Resend] Lead notification email sent successfully:', result);
+    if (result.error) {
+      console.error('[Mailer Resend] Notification rejected:', result.error.name);
+      return;
+    }
+    console.log('[Mailer Resend] Lead notification accepted.');
   } catch (error) {
     console.error('[Mailer Resend Error] Failed to send email via Resend:', error);
   }

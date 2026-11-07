@@ -1,16 +1,20 @@
 import express, { Request, Response, NextFunction } from 'express';
+import { createHash, timingSafeEqual } from 'node:crypto';
+import { Prisma } from '@prisma/client';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 import { z } from 'zod';
-import { db, checkDbConnection, isDbAvailable } from './db.js';
+import { db, checkDbConnection } from './db.js';
+import { PostgresRateLimitStore } from './rateLimit.js';
 import { sendLeadNotification } from './mailer.js';
 import { generateAveriqChatReply, generateAssistantReply } from './ai.js';
 
 dotenv.config();
 
 const app = express();
+if (process.env.VERCEL === '1') app.set('trust proxy', 1);
 const PORT = process.env.PORT || 5000;
 const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173';
 
@@ -26,12 +30,54 @@ app.use(express.json({ limit: '1mb' }));
 const contactLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 20,
+  store: new PostgresRateLimitStore('contact:'),
+  passOnStoreError: false,
   message: {
     success: false,
     message: 'Demasiadas solicitudes desde esta IP. Por favor intenta más tarde.'
   },
   standardHeaders: true,
   legacyHeaders: false
+});
+
+// Both chats share the same per-IP allowance and a daily application budget.
+const aiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  store: new PostgresRateLimitStore('ai:'),
+  passOnStoreError: false,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: 'Alcanzaste el límite de consultas. Intentá de nuevo más tarde.' }
+});
+
+const aiDailyLimit = z.coerce.number().int().min(1).max(100000).parse(process.env.AI_DAILY_LIMIT || '300');
+const aiDailyLimiter = rateLimit({
+  windowMs: 24 * 60 * 60 * 1000,
+  max: aiDailyLimit,
+  keyGenerator: () => 'application',
+  store: new PostgresRateLimitStore('ai-daily:'),
+  passOnStoreError: false,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: 'El chat alcanzó su límite diario. Podés contactarnos por el formulario o WhatsApp.' }
+});
+
+app.use('/api/leads', (req: Request, res: Response, next: NextFunction) => {
+  const token = process.env.LEADS_ADMIN_TOKEN;
+  if (!token) {
+    res.status(503).json({ success: false, message: 'Administración de leads deshabilitada.' });
+    return;
+  }
+  const authorization = req.get('authorization') || '';
+  const expected = createHash('sha256').update('Bearer ' + token).digest();
+  const supplied = createHash('sha256').update(authorization).digest();
+  if (!timingSafeEqual(expected, supplied)) {
+    res.setHeader('WWW-Authenticate', 'Bearer');
+    res.status(401).json({ success: false, message: 'Autenticación requerida.' });
+    return;
+  }
+  next();
 });
 
 // Zod Validation Schema for Leads
@@ -52,9 +98,6 @@ const UpdateLeadSchema = z.object({
   notes: z.string().max(2000).optional().nullable()
 });
 
-// In-memory fallback storage
-const memoryLeads: Array<any> = [];
-
 // Service key mapper for Prisma Enum
 function mapServiceInterest(service: string) {
   switch (service.toLowerCase()) {
@@ -73,11 +116,12 @@ function mapServiceInterest(service: string) {
 // 1. HEALTH & OPERATIONAL ROUTES
 // ----------------------------------------------------
 app.get('/api/health', async (_req: Request, res: Response) => {
-  res.json({
-    status: 'ok',
+  const connected = await checkDbConnection();
+  res.status(connected ? 200 : 503).json({
+    status: connected ? 'ok' : 'unavailable',
     brand: 'Averiq — Inteligencia que funciona',
     timestamp: new Date().toISOString(),
-    database: isDbAvailable ? 'connected (PostgreSQL)' : 'fallback mode'
+    database: connected ? 'connected (PostgreSQL)' : 'unavailable'
   });
 });
 
@@ -106,54 +150,27 @@ app.post('/api/contact', contactLimiter, async (req: Request, res: Response, nex
     const validatedData = ContactLeadSchema.parse(req.body);
     const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
 
-    let leadRecord: any;
-
-    if (db && isDbAvailable) {
-      try {
-        leadRecord = await db.lead.create({
-          data: {
-            fullName: validatedData.fullName,
-            email: validatedData.email,
-            phone: validatedData.phone || null,
-            company: validatedData.company || null,
-            serviceInterest: mapServiceInterest(validatedData.serviceInterest) as any,
-            message: validatedData.message,
-            locale: validatedData.locale,
-            source: validatedData.source,
-            metadata: validatedData.metadata || undefined,
-            ipAddress: clientIp
-          }
-        });
-        console.log(`[Lead Created in PostgreSQL] ID: ${leadRecord.id} - ${leadRecord.fullName} (${leadRecord.email})`);
-      } catch (dbErr) {
-        console.warn('[DB Error] Failed to persist in DB, falling back to memory log:', dbErr);
-        leadRecord = {
-          id: `fallback-${Date.now()}`,
-          ...validatedData,
-          status: 'NUEVO',
-          createdAt: new Date(),
-          updatedAt: new Date()
-        };
-        memoryLeads.push(leadRecord);
+    const leadRecord = await db.lead.create({
+      data: {
+        fullName: validatedData.fullName,
+        email: validatedData.email,
+        phone: validatedData.phone || null,
+        company: validatedData.company || null,
+        serviceInterest: mapServiceInterest(validatedData.serviceInterest),
+        message: validatedData.message,
+        locale: validatedData.locale,
+        source: validatedData.source,
+        metadata: validatedData.metadata || undefined,
+        ipAddress: clientIp
       }
-    } else {
-      leadRecord = {
-        id: `local-${Date.now()}`,
-        ...validatedData,
-        status: 'NUEVO',
-        createdAt: new Date(),
-        updatedAt: new Date()
-      };
-      memoryLeads.push(leadRecord);
-      console.log(`[Lead Recorded Locally] ${leadRecord.fullName} (${leadRecord.email}) - ${leadRecord.serviceInterest}`);
-    }
+    });
 
-    // Trigger asynchronous notification email via Resend (non-blocking)
-    sendLeadNotification(validatedData).catch(err => console.error('[Mailer Async Error]', err));
+    // Complete the notification attempt before the function returns.
+    await sendLeadNotification(validatedData);
 
     res.status(201).json({
       success: true,
-      message: validatedData.locale === 'en' 
+      message: validatedData.locale === 'en'
         ? 'Thank you! Your inquiry has been received. An Averiq specialist will contact you shortly.'
         : '¡Gracias! Tu consulta ha sido recibida. Un especialista de Averiq se contactará a la brevedad.',
       leadId: leadRecord.id
@@ -177,12 +194,12 @@ const AiChatSchema = z.object({
   message: z.string().min(1, 'El mensaje no puede estar vacío').max(1000),
   history: z.array(z.object({
     sender: z.enum(['user', 'bot']),
-    text: z.string()
-  })).optional().default([]),
+    text: z.string().max(4000)
+  })).max(8).optional().default([]),
   locale: z.string().default('es')
 });
 
-app.post('/api/ai/simulate-chat', async (req: Request, res: Response, next: NextFunction) => {
+app.post('/api/ai/simulate-chat', aiLimiter, aiDailyLimiter, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { message, history, locale } = AiChatSchema.parse(req.body);
     const result = await generateAveriqChatReply(message, history, locale);
@@ -202,16 +219,16 @@ app.post('/api/ai/simulate-chat', async (req: Request, res: Response, next: Next
 // 2.2 FLOATING ASSISTANT WITH AUTONOMOUS LEAD CAPTURE (FASE 4)
 // ----------------------------------------------------
 const AssistantChatSchema = z.object({
-  sessionId: z.string().optional(),
+  sessionId: z.string().max(200).optional(),
   message: z.string().min(1, 'El mensaje no puede estar vacío').max(1000),
   history: z.array(z.object({
     sender: z.enum(['user', 'bot']),
-    text: z.string()
-  })).optional().default([]),
+    text: z.string().max(4000)
+  })).max(8).optional().default([]),
   locale: z.string().default('es')
 });
 
-app.post('/api/ai/assistant', async (req: Request, res: Response, next: NextFunction) => {
+app.post('/api/ai/assistant', aiLimiter, aiDailyLimiter, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { sessionId, message, history, locale } = AssistantChatSchema.parse(req.body);
     const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
@@ -235,31 +252,24 @@ app.post('/api/ai/assistant', async (req: Request, res: Response, next: NextFunc
         }
       };
 
-      if (db && isDbAvailable) {
-        try {
-          const lead = await db.lead.create({
-            data: {
-              fullName: leadPayload.fullName,
-              email: leadPayload.email,
-              phone: leadPayload.phone,
-              company: leadPayload.company,
-              serviceInterest: mapServiceInterest(leadPayload.serviceInterest) as any,
-              message: leadPayload.message,
-              locale: leadPayload.locale,
-              source: 'chat_assistant',
-              metadata: leadPayload.metadata,
-              ipAddress: clientIp
-            }
-          });
-          console.log(`[Autonomous Lead Captured from Assistant] ID: ${lead.id} - ${lead.fullName} (${lead.email})`);
-        } catch (dbErr) {
-          console.warn('[DB Error] Failed to persist assistant lead:', dbErr);
+      await db.lead.create({
+        data: {
+          fullName: leadPayload.fullName,
+          email: leadPayload.email,
+          phone: leadPayload.phone,
+          company: leadPayload.company,
+          serviceInterest: mapServiceInterest(leadPayload.serviceInterest),
+          message: leadPayload.message,
+          locale: leadPayload.locale,
+          source: 'chat_assistant',
+          metadata: leadPayload.metadata,
+          ipAddress: clientIp
         }
-      }
+      });
 
-      // Send Resend notification if an email or phone was captured
+      // A captured lead is confirmed only after PostgreSQL accepts it.
       if (result.leadData.email || result.leadData.phone) {
-        sendLeadNotification(leadPayload).catch(err => console.error('[Mailer Assistant Lead Error]', err));
+        await sendLeadNotification(leadPayload);
       }
     }
 
@@ -282,39 +292,25 @@ app.post('/api/ai/assistant', async (req: Request, res: Response, next: NextFunc
 // GET /api/leads/stats - Analytics Dashboard Metrics
 app.get('/api/leads/stats', async (_req: Request, res: Response, next: NextFunction) => {
   try {
-    if (db && isDbAvailable) {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
-      const [totalCount, todayCount, statusDistribution, serviceDistribution, sourceDistribution] = await Promise.all([
-        db.lead.count(),
-        db.lead.count({ where: { createdAt: { gte: today } } }),
-        db.lead.groupBy({ by: ['status'], _count: { status: true } }),
-        db.lead.groupBy({ by: ['serviceInterest'], _count: { serviceInterest: true } }),
-        db.lead.groupBy({ by: ['source'], _count: { source: true } })
-      ]);
+    const [totalCount, todayCount, statusDistribution, serviceDistribution, sourceDistribution] = await Promise.all([
+      db.lead.count(),
+      db.lead.count({ where: { createdAt: { gte: today } } }),
+      db.lead.groupBy({ by: ['status'], _count: { status: true } }),
+      db.lead.groupBy({ by: ['serviceInterest'], _count: { serviceInterest: true } }),
+      db.lead.groupBy({ by: ['source'], _count: { source: true } })
+    ]);
 
-      return res.json({
-        success: true,
-        data: {
-          totalLeads: totalCount,
-          leadsToday: todayCount,
-          byStatus: Object.fromEntries(statusDistribution.map(s => [s.status, s._count.status])),
-          byService: Object.fromEntries(serviceDistribution.map(s => [s.serviceInterest, s._count.serviceInterest])),
-          bySource: Object.fromEntries(sourceDistribution.map(s => [s.source, s._count.source]))
-        }
-      });
-    }
-
-    // Memory fallback stats
-    res.json({
+    return res.json({
       success: true,
       data: {
-        totalLeads: memoryLeads.length,
-        leadsToday: memoryLeads.length,
-        byStatus: { NUEVO: memoryLeads.length },
-        byService: {},
-        bySource: { web_form: memoryLeads.length }
+        totalLeads: totalCount,
+        leadsToday: todayCount,
+        byStatus: Object.fromEntries(statusDistribution.map(s => [s.status, s._count.status])),
+        byService: Object.fromEntries(serviceDistribution.map(s => [s.serviceInterest, s._count.serviceInterest])),
+        bySource: Object.fromEntries(sourceDistribution.map(s => [s.source, s._count.source]))
       }
     });
   } catch (error) {
@@ -330,53 +326,44 @@ app.get('/api/leads', async (req: Request, res: Response, next: NextFunction) =>
     const limitNum = Math.min(100, Math.max(1, parseInt(limit as string, 10) || 50));
     const skip = (pageNum - 1) * limitNum;
 
-    if (db && isDbAvailable) {
-      const whereClause: any = {};
+    const whereClause: any = {};
 
-      if (status && typeof status === 'string' && status !== 'ALL') {
-        whereClause.status = status;
-      }
-
-      if (service && typeof service === 'string' && service !== 'ALL') {
-        whereClause.serviceInterest = mapServiceInterest(service);
-      }
-
-      if (search && typeof search === 'string' && search.trim() !== '') {
-        whereClause.OR = [
-          { fullName: { contains: search, mode: 'insensitive' } },
-          { email: { contains: search, mode: 'insensitive' } },
-          { company: { contains: search, mode: 'insensitive' } },
-          { message: { contains: search, mode: 'insensitive' } }
-        ];
-      }
-
-      const [total, leads] = await Promise.all([
-        db.lead.count({ where: whereClause }),
-        db.lead.findMany({
-          where: whereClause,
-          orderBy: { createdAt: 'desc' },
-          skip,
-          take: limitNum
-        })
-      ]);
-
-      return res.json({
-        success: true,
-        pagination: {
-          total,
-          page: pageNum,
-          limit: limitNum,
-          totalPages: Math.ceil(total / limitNum)
-        },
-        data: leads
-      });
+    if (status && typeof status === 'string' && status !== 'ALL') {
+      whereClause.status = status;
     }
 
-    // Memory fallback list
-    res.json({
+    if (service && typeof service === 'string' && service !== 'ALL') {
+      whereClause.serviceInterest = mapServiceInterest(service);
+    }
+
+    if (search && typeof search === 'string' && search.trim() !== '') {
+      whereClause.OR = [
+        { fullName: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } },
+        { company: { contains: search, mode: 'insensitive' } },
+        { message: { contains: search, mode: 'insensitive' } }
+      ];
+    }
+
+    const [total, leads] = await Promise.all([
+      db.lead.count({ where: whereClause }),
+      db.lead.findMany({
+        where: whereClause,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limitNum
+      })
+    ]);
+
+    return res.json({
       success: true,
-      pagination: { total: memoryLeads.length, page: 1, limit: 50, totalPages: 1 },
-      data: memoryLeads
+      pagination: {
+        total,
+        page: pageNum,
+        limit: limitNum,
+        totalPages: Math.ceil(total / limitNum)
+      },
+      data: leads
     });
   } catch (error) {
     next(error);
@@ -388,19 +375,11 @@ app.get('/api/leads/:id', async (req: Request, res: Response, next: NextFunction
   try {
     const id = String(req.params.id);
 
-    if (db && isDbAvailable) {
-      const lead = await db.lead.findUnique({ where: { id } });
-      if (!lead) {
-        return res.status(404).json({ success: false, message: 'Lead no encontrado' });
-      }
-      return res.json({ success: true, data: lead });
-    }
-
-    const lead = memoryLeads.find(l => l.id === id);
+    const lead = await db.lead.findUnique({ where: { id } });
     if (!lead) {
       return res.status(404).json({ success: false, message: 'Lead no encontrado' });
     }
-    res.json({ success: true, data: lead });
+    return res.json({ success: true, data: lead });
   } catch (error) {
     next(error);
   }
@@ -412,26 +391,14 @@ app.patch('/api/leads/:id', async (req: Request, res: Response, next: NextFuncti
     const id = String(req.params.id);
     const validatedUpdate = UpdateLeadSchema.parse(req.body);
 
-    if (db && isDbAvailable) {
-      const updated = await db.lead.update({
-        where: { id },
-        data: {
-          ...(validatedUpdate.status ? { status: validatedUpdate.status } : {}),
-          ...(validatedUpdate.notes !== undefined ? { notes: validatedUpdate.notes } : {})
-        }
-      });
-      return res.json({ success: true, message: 'Lead actualizado correctamente', data: updated });
-    }
-
-    const leadIndex = memoryLeads.findIndex(l => l.id === id);
-    if (leadIndex === -1) {
-      return res.status(404).json({ success: false, message: 'Lead no encontrado' });
-    }
-    if (validatedUpdate.status) memoryLeads[leadIndex].status = validatedUpdate.status;
-    if (validatedUpdate.notes !== undefined) memoryLeads[leadIndex].notes = validatedUpdate.notes;
-    memoryLeads[leadIndex].updatedAt = new Date();
-
-    res.json({ success: true, message: 'Lead actualizado en memoria', data: memoryLeads[leadIndex] });
+    const updated = await db.lead.update({
+      where: { id },
+      data: {
+        ...(validatedUpdate.status ? { status: validatedUpdate.status } : {}),
+        ...(validatedUpdate.notes !== undefined ? { notes: validatedUpdate.notes } : {})
+      }
+    });
+    return res.json({ success: true, message: 'Lead actualizado correctamente', data: updated });
   } catch (error) {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ success: false, message: 'Datos inválidos', errors: error.errors });
@@ -445,17 +412,8 @@ app.delete('/api/leads/:id', async (req: Request, res: Response, next: NextFunct
   try {
     const id = String(req.params.id);
 
-    if (db && isDbAvailable) {
-      await db.lead.delete({ where: { id } });
-      return res.json({ success: true, message: 'Lead eliminado correctamente' });
-    }
-
-    const leadIndex = memoryLeads.findIndex(l => l.id === id);
-    if (leadIndex === -1) {
-      return res.status(404).json({ success: false, message: 'Lead no encontrado' });
-    }
-    memoryLeads.splice(leadIndex, 1);
-    res.json({ success: true, message: 'Lead eliminado' });
+    await db.lead.delete({ where: { id } });
+    return res.json({ success: true, message: 'Lead eliminado correctamente' });
   } catch (error) {
     next(error);
   }
@@ -465,18 +423,34 @@ app.delete('/api/leads/:id', async (req: Request, res: Response, next: NextFunct
 // 4. CENTRALIZED ERROR HANDLER & SERVER BOOT
 // ----------------------------------------------------
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
-  console.error('[Unhandled Server Error]', err);
+  if (err instanceof Prisma.PrismaClientKnownRequestError ||
+      err instanceof Prisma.PrismaClientInitializationError ||
+      err instanceof Prisma.PrismaClientUnknownRequestError) {
+    const code = 'code' in err ? err.code : undefined;
+    console.error('[Database Operation Failed]', code || err.name);
+    const status = code === 'P2025' ? 404 : 503;
+    res.status(status).json({
+      success: false,
+      message: status === 404 ? 'Lead no encontrado' : 'No se pudo completar la operación. Por favor intentá de nuevo.'
+    });
+    return;
+  }
+  console.error('[Unhandled Server Error]', err.name);
   res.status(500).json({
     success: false,
     message: 'Error interno del servidor. Por favor intenta más tarde.'
   });
 });
 
-app.listen(PORT, async () => {
-  console.log(`\n======================================================`);
-  console.log(`🚀 Averiq Backend API running on port ${PORT}`);
-  console.log(`🌐 Health check: http://localhost:${PORT}/api/health`);
-  console.log(`📊 Leads Analytics API: http://localhost:${PORT}/api/leads/stats`);
-  console.log(`======================================================\n`);
-  await checkDbConnection();
-});
+export default app;
+
+if (require.main === module) {
+  app.listen(PORT, async () => {
+    console.log(`\n======================================================`);
+    console.log(`🚀 Averiq Backend API running on port ${PORT}`);
+    console.log(`🌐 Health check: http://localhost:${PORT}/api/health`);
+    console.log(`📊 Leads Analytics API: http://localhost:${PORT}/api/leads/stats`);
+    console.log(`======================================================\n`);
+    await checkDbConnection();
+  });
+}

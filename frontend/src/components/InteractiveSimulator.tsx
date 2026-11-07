@@ -68,44 +68,29 @@ export const InteractiveSimulator: React.FC = () => {
     if (!textToSend) setChatInput('');
     setIsBotTyping(true);
 
-    try {
-      let response: Response;
-      try {
-        response = await fetch('/api/ai/simulate-chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            message: query,
-            history: chatMessages.slice(-6).map(m => ({ sender: m.sender, text: m.text })),
-            locale: i18n.language
-          })
-        });
-        if (response.status === 404) {
-          response = await fetch('http://localhost:5000/api/ai/simulate-chat', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              message: query,
-              history: chatMessages.slice(-6).map(m => ({ sender: m.sender, text: m.text })),
-              locale: i18n.language
-            })
-          });
-        }
-      } catch (netErr) {
-        response = await fetch('http://localhost:5000/api/ai/simulate-chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            message: query,
-            history: chatMessages.slice(-6).map(m => ({ sender: m.sender, text: m.text })),
-            locale: i18n.language
-          })
-        });
-      }
+    let errorMessage = isEs
+      ? 'No pudimos procesar tu consulta. Intentá de nuevo o contactanos por el formulario o WhatsApp.'
+      : 'We could not process your question. Please try again or use the contact form or WhatsApp.';
 
+    try {
+      const response = await fetch('/api/ai/simulate-chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: query,
+          history: chatMessages.slice(-6).map(m => ({ sender: m.sender, text: m.text })),
+          locale: i18n.language
+        })
+      });
+
+      if (response.status === 429) {
+        errorMessage = isEs
+          ? 'El chat alcanzó su límite de consultas. Intentá más tarde o contactanos por el formulario o WhatsApp.'
+          : 'The chat has reached its request limit. Please try later or use the contact form or WhatsApp.';
+      }
       const resData = await response.json();
 
-      if (resData.success && resData.data?.reply) {
+      if (response.ok && resData.success && resData.data?.reply) {
         setLastLatency(resData.data.latencyMs || 420);
         setChatMessages(prev => [...prev, {
           sender: 'bot',
@@ -117,31 +102,10 @@ export const InteractiveSimulator: React.FC = () => {
         throw new Error('Fallback required');
       }
 
-    } catch (err) {
-      let botResponse = "";
-      const lower = query.toLowerCase();
-
-      if (lower.includes("precio") || lower.includes("cost") || lower.includes("cuanto") || lower.includes("quote")) {
-        botResponse = isEs 
-          ? "Nuestros desarrollos SaaS y chatbots se presupuestan según el alcance exacto de tu negocio. Podés agendar un diagnóstico sin cargo en la sección Contacto."
-          : "Our custom SaaS and chatbots are priced according to your exact business scope. You can book a free diagnostic in the Contact section.";
-      } else if (lower.includes("turno") || lower.includes("medico") || lower.includes("clinic") || lower.includes("appointment")) {
-        botResponse = isEs
-          ? "El módulo de Consultorios sincroniza turnos en tiempo real, valida obras sociales y envía recordatorios por WhatsApp reduciendo el ausentismo en un 40%."
-          : "The Clinic module syncs appointments in real time, validates insurance, and sends automated WhatsApp reminders reducing no-shows by 40%.";
-      } else if (lower.includes("pos") || lower.includes("stock") || lower.includes("venta")) {
-        botResponse = isEs
-          ? "El POS de Averiq funciona en cualquier dispositivo (tablet, celular o PC), emite comprobantes digitales y mantiene el stock multi-sucursal sincronizado."
-          : "Averiq POS runs on any device (tablet, mobile or PC), issues digital receipts, and keeps multi-branch inventory synced.";
-      } else {
-        botResponse = isEs
-          ? `En Averiq diseñamos la arquitectura precisa para "${query}", conectando modelos de IA con tus bases de datos (PostgreSQL), APIs y WhatsApp Business.`
-          : `At Averiq we engineer the precise architecture for "${query}", connecting AI models with your databases (PostgreSQL), APIs, and WhatsApp Business.`;
-      }
-
+    } catch {
       setChatMessages(prev => [...prev, {
         sender: 'bot',
-        text: botResponse,
+        text: errorMessage,
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       }]);
     } finally {

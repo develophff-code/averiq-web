@@ -48,3 +48,12 @@ model Lead {
   @@index([createdAt])
   @@map("leads")
 }
+
+model RateLimit {
+  key     String   @id
+  hits    Int
+  resetAt DateTime @map("reset_at") @db.Timestamptz(3)
+
+  @@index([resetAt])
+  @@map("rate_limits")
+}

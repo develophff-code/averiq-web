@@ -42,7 +42,7 @@ export const Footer: React.FC = () => {
             {/* Social Links */}
             <div className="flex items-center gap-3 pt-2">
               <a 
-                href="https://wa.me/5492645859829" 
+                href="https://wa.me/5492643163414" 
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="w-9 h-9 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-400 hover:text-emerald-400 hover:border-emerald-500/50 transition"
