@@ -1,5 +1,18 @@
 import { Resend } from 'resend';
 
+// Match the contact.form.service_options labels in the frontend locale files.
+const generalInquiryLabels = { es: 'Otra consulta general', en: 'General Inquiry' };
+const serviceLabels = new Map([
+  ['chatbot_support', { es: 'Chatbot de Atención 24/7', en: '24/7 Support Chatbot' }],
+  ['chatbot_sales', { es: 'Chatbot de Ventas & Prospección', en: 'Sales & Prospecting Chatbot' }],
+  ['pos', { es: 'POS para Pequeños Negocios', en: 'Small Business POS' }],
+  ['accounts_payable', { es: 'Cuentas a Pagar a Proveedores', en: 'Accounts Payable & Suppliers' }],
+  ['clinics', { es: 'Consultorios: Turnos & Obras Sociales', en: 'Clinics: Appointments & Insurance' }],
+  ['consulting', { es: 'Consultoría de Soluciones de AI', en: 'Enterprise AI Consulting' }],
+  ['saas_custom', { es: 'Desarrollo SaaS a Medida', en: 'Custom Niche SaaS' }],
+  ['other', generalInquiryLabels]
+]);
+
 export interface LeadEmailPayload {
   fullName: string;
   email: string;
@@ -22,12 +35,16 @@ export async function sendLeadNotification(payload: LeadEmailPayload): Promise<v
 
   try {
     const resend = new Resend(apiKey);
+    const language = payload.locale.toLowerCase().split('-')[0] === 'en' ? 'en' : 'es';
+    const labels = serviceLabels.get(payload.serviceInterest.toLowerCase()) ?? generalInquiryLabels;
+    const serviceLabel = labels[language];
+    const serviceLabelHtml = serviceLabel.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
 
     const result = await resend.emails.send({
       from: fromEmail,
       to: [notifyEmail],
       replyTo: payload.email,
-      subject: `⚡ [Nuevo Lead Averiq] ${payload.serviceInterest.toUpperCase()} — ${payload.fullName}`,
+      subject: `⚡ [Nuevo Lead Averiq] ${serviceLabel} — ${payload.fullName}`,
       html: `
         <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; background: #080C14; color: #F1F5F9; border-radius: 16px; border: 1px solid #1E293B; overflow: hidden;">
           <div style="background: linear-gradient(135deg, #00D2FF 0%, #0062FF 100%); padding: 24px; text-align: center;">
@@ -56,7 +73,7 @@ export async function sendLeadNotification(payload: LeadEmailPayload): Promise<v
               <tr style="border-bottom: 1px solid #1E293B;">
                 <td style="padding: 10px 0; color: #94A3B8; font-size: 13px;">Solución de Interés:</td>
                 <td style="padding: 10px 0; color: #00D2FF; font-size: 13px; font-weight: bold;">
-                  <span style="background: rgba(0, 210, 255, 0.15); padding: 4px 8px; border-radius: 6px; border: 1px solid rgba(0, 210, 255, 0.3);">${payload.serviceInterest}</span>
+                  <span style="background: rgba(0, 210, 255, 0.15); padding: 4px 8px; border-radius: 6px; border: 1px solid rgba(0, 210, 255, 0.3);">${serviceLabelHtml}</span>
                 </td>
               </tr>
               <tr>
